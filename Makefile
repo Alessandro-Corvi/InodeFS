@@ -1,21 +1,21 @@
-# Nome eseguibile
-TARGET = shell
-
-# Compilatore
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11
+CFLAGS = -Wall -Wextra -g
 
-# Regola principale
-all: $(TARGET)
+OBJ = shell.o fs.o aux.o
 
-# Compilazione diretta
-$(TARGET): shell.c
-	$(CC) $(CFLAGS) shell.c -o $(TARGET)
+all: shell
 
-# Eseguire
-run: $(TARGET)
-	./$(TARGET)
+shell: $(OBJ)
+	$(CC) $(CFLAGS) -o shell $(OBJ)
 
-# Pulizia
+shell.o: shell.c fs.h aux.h
+	$(CC) $(CFLAGS) -c shell.c
+
+fs.o: fs.c fs.h
+	$(CC) $(CFLAGS) -c fs.c
+
+aux.o: aux.c aux.h fs.h
+	$(CC) $(CFLAGS) -c aux.c
+
 clean:
-	rm -f $(TARGET)
+	rm -f *.o shell

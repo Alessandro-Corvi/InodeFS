@@ -13,10 +13,6 @@
 
 char current_path[MAX_PATH];
 
-void format_fs(const char *filename, int size) {
-    (void)filename;
-    (void)size;
-}
 
 void list(){
     printf("--------------\n");
@@ -47,7 +43,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             printf("Errore: size %s non valida", argv[2]);
             return;
         }
-        if(argc==3){return;}
+        if(argc == 4){return;}
         format_fs(argv[1],atoi(argv[2]));
     }
     /*
