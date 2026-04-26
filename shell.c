@@ -5,7 +5,8 @@
 #include <sys/wait.h>
 #include <string.h>
 
-//#include "fs.h"
+#include "fs.h"
+#include "aux.h"
 
 #define MAX_LINE    2048
 #define MAX_TOKENS  256
@@ -31,7 +32,7 @@ void do_cmd(char* argv[MAX_TOKENS]/*,int argc*/) {
     /*  HELP COMMANDS */
     if (strcmp(argv[0], "list") == 0) {
         list();
-    }/*else if(strcmp(argv[0],"format")==0){
+    }else if(strcmp(argv[0],"format")==0){
         if(argv[1]==NULL){
             printf("Errore: parametri in ingresso non validi\n");
             return;
@@ -40,23 +41,22 @@ void do_cmd(char* argv[MAX_TOKENS]/*,int argc*/) {
             printf("Errore: size %s non valida\n", argv[2]);
             return;
         }
-        if(argc == 4){return;}
-        format_fs(argv[1],atoi(argv[2]));
-    }else if(strcmp(argv[0],"load")==0){
+        formatFS(argv[1],atoi(argv[2]));
+    }/*else if(strcmp(argv[0],"load")==0){
         if(argv[1]==NULL){
             printf("Errore: filename non valido\n");
             return;
         }
         load_fs(argv[1]);
-    }
+    }*/
     
     else if(strcmp(argv[0],"mkdir")==0){
         if(argv[1] == NULL){
             printf("Errore : nome non valido\n");
             return;
         }
-        createDir(argv[1]);
-    }else if(strcmp(argv[0],"cd")==0){
+        createDirectory(argv[1]);
+    }/*else if(strcmp(argv[0],"cd")==0){
         if(argv[1] == NULL){
             printf("Errore : nome non valido\n");
             return;
@@ -115,9 +115,9 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
 int do_shell(char *prompt){
     printf("list: lista i comandi disponibili\n");
     for (;;) {
-        /*if(fs!= NULL){
-            printf("\n%s",fs->current_path);
-        }*/
+        if(fs!= NULL){
+            printf("%s",fs->current_path);
+        }
         printf("%s",prompt);
         char* argv[MAX_TOKENS];
         int argc = 0;

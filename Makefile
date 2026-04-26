@@ -1,29 +1,19 @@
-# Nome del compilatore
 CC = gcc
+CFLAGS = -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L
 
-# Flag di compilazione
-CFLAGS = -Wall -Wextra -std=c11
-
-# Nome dell'eseguibile
+SRC = shell.c fs.c aux.c
+OBJ = $(SRC:.c=.o)
 TARGET = shell
 
-# File sorgente
-SRC = shell.c
-
-# File oggetto
-OBJ = $(SRC:.c=.o)
-
-# Regola principale
 all: $(TARGET)
 
-# Link finale
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^
 
-# Compilazione dei .c in .o
-%.o: %.c
+%.o: %.c fs.h aux.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Pulizia
 clean:
 	rm -f $(OBJ) $(TARGET)
+
+rebuild: clean all
