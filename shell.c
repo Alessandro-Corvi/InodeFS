@@ -28,7 +28,7 @@ void list(){
 }
 
 
-void do_cmd(char* argv[MAX_TOKENS]/*,int argc*/) {
+void do_cmd(char* argv[MAX_TOKENS],int argc) {
     /*  HELP COMMANDS */
     if (strcmp(argv[0], "list") == 0) {
         list();
@@ -56,26 +56,39 @@ void do_cmd(char* argv[MAX_TOKENS]/*,int argc*/) {
             return;
         }
         createDirectory(argv[1]);
-    }/*else if(strcmp(argv[0],"cd")==0){
+    }else if(strcmp(argv[0],"cd")==0){
         if(argv[1] == NULL){
             printf("Errore : nome non valido\n");
             return;
         }
-        changeDir(argv[1]);
-    }else if(strcmp(argv[0],"touch")==0){
+        changeDirectory(argv[1]);
+    }/*else if(strcmp(argv[0],"touch")==0){
 
     }else if(strcmp(argv[0],"cat")==0){
 
-    }else if(strcmp(argv[0],"ls")==0){
-        printDir(); //Stampa solo la directory corrente
-    }else if(strcmp(argv[0],"append")==0){
+    }*/else if(strcmp(argv[0],"ls")==0){
+        int inodes_mode = 0;
+        if(argc == 2 && strcmp(argv[1],"-i")==0){
+            inodes_mode = 1;
+        }
+        printDirectory(inodes_mode); //Stampa solo la directory corrente
+    }/*else if(strcmp(argv[0],"append")==0){
 
     }else if(strcmp(argv[0],"rmfile")==0){
 
-    }else if(strcmp(argv[0],"rmdir")==0){
-
+    }*/else if(strcmp(argv[0],"rmdir")==0){
+        if(argv[1] == NULL || (argc>2) ){
+            printf("Parametri in ingresso non validi");
+            return;
+        }
+        char *token = strtok(argv[1], ".");
+        if(strcmp(token, argv[1])){
+            printf("Errore: il nome della directory non può contenere '.'\n");
+            return;
+        }
+        removeDirectory(argv[1]);
     }
-    */
+    
 
    
     /*  EXIT COMMAND */
@@ -124,7 +137,7 @@ int do_shell(char *prompt){
         get_cmd_line(argv,&argc);
         if (argv[0] == NULL) continue;
         if (strcmp(argv[0], "quit") == 0) break;
-        do_cmd(argv/*, argc*/);
+        do_cmd(argv, argc);
 	    deallocate_cmd(argv);
     }
     return EXIT_SUCCESS;

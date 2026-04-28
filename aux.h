@@ -10,11 +10,11 @@ DirEntry* searchFreeDirEntry();
 Inode* searchFreeInode();
 int searchFreeBlock();
 
-int findEntry(const char *dirname);
-int findFile(const char* filename);
+DirEntry* findEntry(const char *dirname);
+
 
 int addDirEntry (const char* name, int id);
-int removeDirEntry(const char* name, int id);
+int removeDirEntry(int id);
 int syncFS();
 
 #endif 

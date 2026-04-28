@@ -28,7 +28,6 @@ int formatFS(const char* filename, int fs_size) {
 
     // Inizializza la struttura del file system
     fs=(Filesystem*)malloc(sizeof(Filesystem));
-    memset(fs,0,sizeof(Filesystem));
     
     // Inizializza il file system (ad esempio, scrivi la superblock)
     fs->sb =(Superblock*)ptr;
@@ -47,38 +46,14 @@ int formatFS(const char* filename, int fs_size) {
     for(int i=0; i < fs->sb->num_inodes; i++){
         Inode *inode = (Inode*) &(fs->inodes[i]);
         inode->id=i;
-        inode->is_dir=0;
-        inode->size=0;
-        inode->used=0;
-        inode->num_entries = 0;
-        for(int i=0; i < 12; i++){
-            inode->direct[i] = NULL_PTR;
-        }
-        inode->indirect = NULL_PTR;
     }
-
-
+    //Inizializzo Root
     Inode *inode = &fs->inodes[0];
     inode->used = 1;
     fs->current_dir = inode;
     fs->current_path[0] = '/';
 
-    int block_index = searchFreeBlock();
-    if(block_index < 0){
-        printf("Spazio dei blocchi esaurito");
-        return -1;
-    }
-    fs->current_dir->direct[0] = block_index;
-    DirEntry *entry = (DirEntry*)(fs->data + block_index * fs->sb->block_size);
 
-    strcpy(entry[0].name,".");
-    entry[0].id = 0;
-    fs->current_dir->num_entries ++;
-
-    strcpy(entry[1].name,"..");
-    entry[1].id = 0; //La root punta a se stessa
-    fs->current_dir->num_entries++;
-    
     //Deve puntare a se stessa in questo caso
     //Nel caso di creazione cartella mkdir, il puntatore ".." deve puntare alla cartella padre
     //e per farlo devo fs->current_dir->block_ptrs[0] = block_index della cartella 
@@ -127,7 +102,7 @@ int loadFS(const char* filename) {
 int createDirectory(const char* dirname) {
     //Controllo che non esiste già
     printf("Ciao1");
-    if(findEntry(dirname) == 0){
+    if(findEntry(dirname) != NULL){
           printf("È già presente una cartella con il nome %s",dirname);
           return -1;
     }
@@ -156,10 +131,12 @@ int createDirectory(const char* dirname) {
     strcpy(entry[0].name,".");
     entry[0].id = new_inode->id;
     new_inode->num_entries ++;
+    printf("\nScritto %s", entry[0].name);
 
     strcpy(entry[1].name,"..");
     entry[1].id = fs->current_dir->id;
     new_inode->num_entries ++;
+    printf("\nScritto %s", entry[1].name);
 
     //Aggiunge l'entry al padre
     addDirEntry(dirname,new_inode->id);
@@ -170,8 +147,29 @@ int createDirectory(const char* dirname) {
 }
 
 
-void printDirectory(){
+void printDirectory(int option){
+    if(option){
+        printf("Inode-Name\n");
+    }
+    for (int i=0; i<NUM_PTRS; i++){
+        
+        char *block = (char*)getBlockAt(i);
+        if(block==NULL){continue;}
 
+        DirEntry *entries = (DirEntry*) block;
+        for(int j=0; j<ENTRIES_PER_BLOCK; j++){
+            
+            if(option){
+                if(entries[j].name[0] == '\0'){continue;}
+                printf("%d  %s\n",entries[j].id,entries[j].name);
+            }
+            else{
+                if(entries[j].name[0] == '\0'){continue;}
+                printf("%s\n",entries[j].name);
+            }
+        }
+
+    }
 }
 
 
@@ -189,17 +187,17 @@ void changeDirectory(const char *dirname) {
         } else {
             *last_slash = '\0'; // rimuove ultimo componente
         }
-        //Per risparmiarmi la funzione per cerc
+        
         DirEntry *entry = (DirEntry*)(fs->data + fs->current_dir->direct[0] * fs->sb->block_size);
         fs->current_dir = &fs->inodes[entry[1].id];
     } else {
         // directory normale
-        int id = findEntry(dirname);
-        if (id == -1) {
+        DirEntry *entry= findEntry(dirname);
+        if (entry == NULL) {
             printf("Directory non trovata: %s\n", dirname);
             return;
         }
-        Inode *inode = &fs->inodes[id];
+        Inode *inode = &fs->inodes[entry->id];
         if (!inode->is_dir) {
             printf("%s non è una directory\n", dirname);
             return;
@@ -212,4 +210,27 @@ void changeDirectory(const char *dirname) {
         // aggiorna current_dir
         fs->current_dir = inode;
     }
+}
+
+int removeDirectory(const char* dirname){
+    DirEntry *entry = findEntry(dirname);
+    if(entry == NULL){
+        printf("Non è presente la cartella con nome %s", dirname);
+        return -1;
+    }
+
+    Inode *inode = (Inode*) &(fs->inodes[entry->id]);
+    if(inode->num_entries > 2){
+        printf("La cartella non è vuota");
+        return -1;
+    }
+
+    //Rimuovo le entry . e ..
+    DirEntry *entries = (DirEntry*)(fs->data  + inode->direct[0] * fs->sb->block_size);
+    memset(entries,0,2*sizeof(DirEntry));
+
+    //Rimuovo la entry dal padre
+    removeDirEntry(inode->id);
+    syncFS();
+    return 0;
 }

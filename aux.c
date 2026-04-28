@@ -6,6 +6,7 @@ char* getBlockAt(int index){
         if(fs->current_dir->direct[index] == 0){return NULL;}
         block = fs->data + fs->current_dir->direct[index] * fs->sb->block_size;
     }else{
+        if(fs->current_dir->indirect == 0) {return NULL;}
         int *direct =(int*) (fs->data + fs->current_dir->indirect * fs->sb->block_size);
         if(direct[index]==0){return NULL;}
         block = fs->data + direct[index] + fs->sb->block_size;
@@ -83,18 +84,18 @@ Inode* searchFreeInode(){
     return NULL;
 }
 
-int findEntry(const char* dirname){
+DirEntry* findEntry(const char* dirname){
     for(int index = 0; index < NUM_PTRS; index++){
         char *block = getBlockAt(index);
         if(block == NULL){continue;}
         DirEntry *entry = (DirEntry*) block;
         for(int j=0; j< (int)(fs->sb->block_size/sizeof(DirEntry)); j++){
             if(strcmp(entry[j].name,dirname) == 0){
-                return 0;
+                return &entry[j];
             }
         }
     }
-    return -1;
+    return NULL;
 }
 
 
@@ -144,6 +145,20 @@ int addDirEntry(const char* name, int id) {
     return 0;
 }
 
+
+int removeDirEntry(int id){
+    for(int i=0; i<NUM_PTRS; i++){
+        DirEntry *entries = (DirEntry*)(getBlockAt(i));
+        for(int j=0 ; j<ENTRIES_PER_BLOCK; j++){
+            if(entries[j].id ==id){
+                memset((DirEntry*)&entries[j],0,sizeof(DirEntry));
+                fs->current_dir->num_entries--;
+                return 0;
+            }
+        }
+    }
+    return -1;
+}
 
 //Funzione per sincronizzare direttamente con il disco
 int syncFS() {
