@@ -41,7 +41,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             printf("Errore: size %s non valida\n", argv[2]);
             return;
         }
-        formatFS(argv[1],atoi(argv[2]));
+        format_fs(argv[1],atoi(argv[2]));
     }else if(strcmp(argv[0],"load")==0){
         if(argv[1]==NULL){
             printf("Errore: filename non valido\n");
@@ -55,13 +55,13 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             printf("Errore : nome non valido\n");
             return;
         }
-        createDirectory(argv[1]);
+        create_dir(argv[1]);
     }else if(strcmp(argv[0],"cd")==0){
         if(argv[1] == NULL){
             printf("Errore : nome non valido\n");
             return;
         }
-        changeDirectory(argv[1]);
+        change_dir(argv[1]);
     }else if(strcmp(argv[0],"touch")==0){
         if(argv[1] == NULL || argc>2){
             printf("Parametri in ingresso non validi");
@@ -79,7 +79,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         if(argc == 2 && strcmp(argv[1],"-i")==0){
             inodes_mode = 1;
         }
-        printDirectory(inodes_mode); //Stampa solo la directory corrente
+        print_dir(inodes_mode); //Stampa solo la directory corrente
     }/*else if(strcmp(argv[0],"append")==0){
 
     }else if(strcmp(argv[0],"rmfile")==0){
@@ -94,7 +94,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             printf("Errore: il nome della directory non può contenere '.'\n");
             return;
         }
-        removeDirectory(argv[1]);
+        remove_dir(argv[1]);
     }
     
 

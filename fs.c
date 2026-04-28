@@ -3,7 +3,7 @@
 
 Filesystem *fs;
 
-int formatFS(const char* filename, int fs_size) {
+int format_fs(const char* filename, int fs_size) {
     int fd = open(filename, O_RDWR | O_CREAT, 0644);
     if (fd == -1) {
         printf("Errore: impossibile creare il file %s\n", filename);
@@ -65,7 +65,7 @@ int formatFS(const char* filename, int fs_size) {
 }
 
 
-int loadFS(const char* filename) {
+int load_fs(const char* filename) {
     int fd = open(filename, O_RDWR);
     if (fd == -1) {
         printf("Errore: impossibile aprire il file %s\n", filename);
@@ -99,17 +99,17 @@ int loadFS(const char* filename) {
 }
 
 
-int createDirectory(const char* dirname) {
+int create_dir(const char* dirname) {
     //Controllo che non esiste già
     printf("Ciao1");
-    if(findEntry(dirname) != NULL){
+    if(findEntry(fs->current_dir,dirname) != NULL){
           printf("È già presente una cartella con il nome %s",dirname);
           return -1;
     }
 
      printf("Ciao2");
     //Cerca inode libero
-    Inode *new_inode = searchFreeInode();
+    Inode *new_inode = search_free_inode();
     if(new_inode == NULL){
         printf("Tabella degli inode piena");
         return -1;
@@ -119,31 +119,23 @@ int createDirectory(const char* dirname) {
     new_inode->is_dir=1;
     
     //Aggiunge le entry . e ..
-    int block_index = searchFreeBlock();
+    int block_index = search_free_block();
     if(block_index < 0){
         printf("Spazio dei blocchi esaurito");
         return -1;
     }
-    //Scrivo nel primo blocco della directory le entry . e ..
-    new_inode->direct[0] = block_index;
-    DirEntry *entries = (DirEntry*) (fs->data + block_index*fs->sb->block_size);
-    
     /*
         NOTA: se volessi aggiungere . e .. con add_dir_entry
         devo mettere come parametri d'ingresso anche l'inode
     */
-    strcpy(entries[0].name,".");
-    entries[0].id = new_inode->id;
-    new_inode->num_entries ++;
-    printf("\nScritto %s", entries[0].name);
 
-    strcpy(entries[1].name,"..");
-    entries[1].id = fs->current_dir->id;
-    new_inode->num_entries ++;
-    printf("\nScritto %s", entries[1].name);
+    //Aggiunge le entry . e ..
+    add_dir_entry(new_inode,".",new_inode->id);
+    add_dir_entry(new_inode,"..",fs->current_dir->id);
+    
 
     //Aggiunge l'entry al padre
-    addDirEntry(dirname,new_inode->id);
+    add_dir_entry(fs->current_dir,dirname,new_inode->id);
 
     syncFS();
     printf("\nDirectory %s salvata correttamente\n", dirname);
@@ -151,13 +143,13 @@ int createDirectory(const char* dirname) {
 }
 
 
-void printDirectory(int option){
+void print_dir(int option){
     if(option){
         printf("Inode-Name\n");
     }
     for (int i=0; i<NUM_PTRS; i++){
         
-        char *block = (char*)getBlockAt(i);
+        char *block = (char*)get_inode_block(fs->current_dir,i);
         if(block==NULL){continue;}
 
         DirEntry *entries = (DirEntry*) block;
@@ -177,7 +169,7 @@ void printDirectory(int option){
 }
 
 
-void changeDirectory(const char *dirname) {
+void change_dir(const char *dirname) {
     if (strcmp(".", dirname) == 0) {
         return;
     } else if (strcmp("..", dirname) == 0) {
@@ -196,7 +188,7 @@ void changeDirectory(const char *dirname) {
         fs->current_dir = &fs->inodes[entry[1].id];
     } else {
         // directory normale
-        DirEntry *entry= findEntry(dirname);
+        DirEntry *entry= findEntry(fs->current_dir,dirname);
         if (entry == NULL) {
             printf("Directory non trovata: %s\n", dirname);
             return;
@@ -216,8 +208,8 @@ void changeDirectory(const char *dirname) {
     }
 }
 
-int removeDirectory(const char* dirname){
-    DirEntry *entry = findEntry(dirname);
+int remove_dir(const char* dirname){
+    DirEntry *entry = findEntry(fs->current_dir,dirname);
     if(entry == NULL){
         printf("Non è presente la cartella con nome %s", dirname);
         return -1;
@@ -240,7 +232,7 @@ int removeDirectory(const char* dirname){
     memset(entries,0,2*sizeof(DirEntry));
 
     //Rimuovo la entry dal padre
-    removeDirEntry(inode->id);
+    remove_dir_entry(fs->current_dir,inode->id);
     syncFS();
     return 0;
 }
@@ -253,13 +245,13 @@ int create_file(const char* filename){
         return -1;
     }
 
-    if(findEntry(filename) != NULL){
+    if(findEntry(fs->current_dir,filename) != NULL){
         printf("File con nome %s già presente ",filename);
         return -1;
     }
 
     //Cerco un inode libero per il file
-    Inode *new_inode = searchFreeInode();
+    Inode *new_inode = search_free_inode();
     if(new_inode == NULL){
         printf("Tabella degli inode piena");
         return -1;
@@ -269,9 +261,13 @@ int create_file(const char* filename){
     new_inode->used = 1;
 
     //Aggiungo la entry alla directory padre
-    addDirEntry(filename,new_inode->id);
+    add_dir_entry(fs->current_dir,filename,new_inode->id);
 
     //Apporto le modifiche al disco
     syncFS();
     return 0;
 }
+
+/*
+ReadFile uso le funzioni
+*/

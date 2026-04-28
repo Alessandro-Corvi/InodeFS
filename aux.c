@@ -1,13 +1,13 @@
 #include "aux.h"
 
-char* getBlockAt(int index){
+char* get_inode_block(Inode *inode,int index){
     char *block = NULL;
     if(index < 12){
-        if(fs->current_dir->direct[index] == 0){return NULL;}
-        block = fs->data + fs->current_dir->direct[index] * fs->sb->block_size;
+        if(inode->direct[index] == 0){return NULL;}
+        block = fs->data + inode->direct[index] * fs->sb->block_size;
     }else{
-        if(fs->current_dir->indirect == 0) {return NULL;}
-        int *direct =(int*) (fs->data + fs->current_dir->indirect * fs->sb->block_size);
+        if(inode->indirect == 0) {return NULL;}
+        int *direct =(int*) (fs->data + inode->indirect * fs->sb->block_size);
         if(direct[index]==0){return NULL;}
         block = fs->data + direct[index] + fs->sb->block_size;
     }
@@ -15,18 +15,18 @@ char* getBlockAt(int index){
 }
 
 
-int allocBlockAt(int index){
-    int block_index = searchFreeBlock();
+int alloc_inode_block(Inode *inode, int index){
+    int block_index = search_free_block();
     if(block_index < -1){printf("Errore: memoria dati esaurita");return -1;}
 
     if(index<12){
-        fs->current_dir->direct[index] = block_index;
+        inode->direct[index] = block_index;
     }else{
         //Se l'indice indiretto non ha un blocco
         if(index == 12){
-            fs->current_dir->indirect = block_index;
+            inode->indirect = block_index;
             int *direct_ptr = (int*) (fs->data + block_index * fs->sb->block_size);
-            int block_index = searchFreeBlock();
+            int block_index = search_free_block();
             if(block_index < 0){
                 printf("Errore: memoria dati esaurita"); 
                 return -1;
@@ -34,7 +34,7 @@ int allocBlockAt(int index){
            direct_ptr[0] = block_index; 
         }else{
             //Se l'indice indiretto ha un blocco allocato cerco direttamente il puntatore
-            int *direct_ptr =(int*) (fs->data + fs->current_dir->indirect * fs->sb->block_size);
+            int *direct_ptr =(int*) (fs->data + inode->indirect * fs->sb->block_size);
             direct_ptr[index] = block_index;
         }
     }
@@ -43,7 +43,7 @@ int allocBlockAt(int index){
 
 
 
-int searchFreeBlock() {
+int search_free_block() {
     for (int i = 1; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
         int byte = i / 8;
         int bit = 7 - (i % 8);
@@ -56,9 +56,9 @@ int searchFreeBlock() {
     return -1;
 }
 
-DirEntry* searchFreeEntry() {
+DirEntry* search_free_entry(Inode *inode) {
     for(int i = 0; i < NUM_PTRS; i++) {
-        char *block = getBlockAt(i);
+        char *block = get_inode_block(inode,i);
         if (!block) continue;
 
         DirEntry *entry = (DirEntry*) block;
@@ -72,7 +72,7 @@ DirEntry* searchFreeEntry() {
 }
 
 
-Inode* searchFreeInode(){
+Inode* search_free_inode(){
     for(int i=0; i < fs->sb->free_inodes; i++){
         Inode *inode = (Inode*) &(fs->inodes[i]);
         if(!(inode->used)){
@@ -84,9 +84,9 @@ Inode* searchFreeInode(){
     return NULL;
 }
 
-DirEntry* findEntry(const char* dirname){
+DirEntry* findEntry(Inode *inode,const char* dirname){
     for(int index = 0; index < NUM_PTRS; index++){
-        char *block = getBlockAt(index);
+        char *block = get_inode_block(inode,index);
         if(block == NULL){continue;}
         DirEntry *entry = (DirEntry*) block;
         for(int j=0; j< (int)(fs->sb->block_size/sizeof(DirEntry)); j++){
@@ -99,12 +99,10 @@ DirEntry* findEntry(const char* dirname){
 }
 
 
-
-//Aggiunge la entry all'inode  padre
-void addDirEntry(const char* name, int id) {
+void add_dir_entry(Inode *inode, const char* name, int id){
     int free_ptr = NULL_PTR;
     for(int i=0; i< NUM_PTRS; i++){
-        char *block = getBlockAt(i);
+        char *block = get_inode_block(inode,i);
         //Se il blocco non è stato allocato
         if(block==NULL){
             //Se ancora non è stato trovato il primo puntatore libero
@@ -118,32 +116,35 @@ void addDirEntry(const char* name, int id) {
             if(entries[j].name[0] == '\0'){
                 strcpy(entries[j].name, name);
                 entries[j].id = id;
-                fs->current_dir->num_entries ++;
+                inode->num_entries ++;
                 return;
             }
         }
     }
     //Se non ho trovato entries libere nei blocchi allocati
     // ne alloco uno nuovo
-    int ptr_allocated = allocBlockAt(free_ptr);
-    DirEntry *entries = (DirEntry*)getBlockAt(ptr_allocated);
+    int ptr_allocated = alloc_inode_block(inode, free_ptr);
+    DirEntry *entries = (DirEntry*)get_inode_block(inode, ptr_allocated);
     
     //Aggiungo la nuova entry
     strcpy(entries[0].name, name);
     entries[0].id = id;
     
-    //Aumento le entry della dir corrente
-    fs->current_dir->num_entries ++ ;
+    //Aumento le entry della directory
+    inode->num_entries ++ ;
 }
 
-//Rimuove la entry dall'inode padre
-int removeDirEntry(int id){
+
+
+
+//Rimuove la entry dall'inode passato
+int remove_dir_entry(Inode *inode, int id){
     for(int i=0; i<NUM_PTRS; i++){
-        DirEntry *entries = (DirEntry*)(getBlockAt(i));
+        DirEntry *entries = (DirEntry*)(get_inode_block(fs->current_dir,i));
         for(int j=0 ; j<ENTRIES_PER_BLOCK; j++){
             if(entries[j].id ==id){
                 memset((DirEntry*)&entries[j],0,sizeof(DirEntry));
-                fs->current_dir->num_entries--;
+                inode->num_entries--;
                 return 0;
             }
         }

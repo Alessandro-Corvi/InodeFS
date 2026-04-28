@@ -58,13 +58,13 @@ typedef struct{
 extern Filesystem *fs;
 
 
-int formatFS(const char* filename, int fs_size);
-int loadFS(const char* filename);
+int format_fs(const char* filename, int fs_size);
+int load_fs(const char* filename);
 
-int createDirectory(const char* dirname);
-void changeDirectory(const char* dirname);
-void printDirectory();
-int removeDirectory(const char* dirname);
+int create_dir(const char* dirname);
+void change_dir(const char* dirname);
+void print_dir();
+int remove_dir(const char* dirname);
 
 int create_file(const char* filename);
 

@@ -3,18 +3,18 @@
 
 #include "fs.h"
 
-char* getBlockAt(int index);
-int allocBlockAt(int index);
+char* get_inode_block(Inode *inode,int index);
+int alloc_inode_block(Inode *inode,int index);
 
-DirEntry* searchFreeDirEntry();
-Inode* searchFreeInode();
-int searchFreeBlock();
+DirEntry* search_free_entry();
+Inode* search_free_inode();
+int search_free_block();
 
-DirEntry* findEntry(const char *dirname);
+DirEntry* findEntry(Inode *inode,const char *dirname);
 
 
-void addDirEntry (const char* name, int id);
-int removeDirEntry(int id);
+void add_dir_entry (Inode *inode, const char* name, int id);
+int remove_dir_entry(Inode *inode,int id);
 int syncFS();
 
 #endif 
