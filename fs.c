@@ -126,17 +126,21 @@ int createDirectory(const char* dirname) {
     }
     //Scrivo nel primo blocco della directory le entry . e ..
     new_inode->direct[0] = block_index;
-    DirEntry *entry = (DirEntry*) (fs->data + block_index*fs->sb->block_size);
+    DirEntry *entries = (DirEntry*) (fs->data + block_index*fs->sb->block_size);
     
-    strcpy(entry[0].name,".");
-    entry[0].id = new_inode->id;
+    /*
+        NOTA: se volessi aggiungere . e .. con add_dir_entry
+        devo mettere come parametri d'ingresso anche l'inode
+    */
+    strcpy(entries[0].name,".");
+    entries[0].id = new_inode->id;
     new_inode->num_entries ++;
-    printf("\nScritto %s", entry[0].name);
+    printf("\nScritto %s", entries[0].name);
 
-    strcpy(entry[1].name,"..");
-    entry[1].id = fs->current_dir->id;
+    strcpy(entries[1].name,"..");
+    entries[1].id = fs->current_dir->id;
     new_inode->num_entries ++;
-    printf("\nScritto %s", entry[1].name);
+    printf("\nScritto %s", entries[1].name);
 
     //Aggiunge l'entry al padre
     addDirEntry(dirname,new_inode->id);
@@ -219,11 +223,17 @@ int removeDirectory(const char* dirname){
         return -1;
     }
 
+
     Inode *inode = (Inode*) &(fs->inodes[entry->id]);
     if(inode->num_entries > 2){
         printf("La cartella non è vuota");
         return -1;
     }
+    /*
+    Non aggiungo il controllo inode->is_dir = 1
+    perchè già l'ho fatto nella shell, cioè non 
+    permette la creazione di cartelle con il punto
+    */
 
     //Rimuovo le entry . e ..
     DirEntry *entries = (DirEntry*)(fs->data  + inode->direct[0] * fs->sb->block_size);
@@ -231,6 +241,37 @@ int removeDirectory(const char* dirname){
 
     //Rimuovo la entry dal padre
     removeDirEntry(inode->id);
+    syncFS();
+    return 0;
+}
+
+
+
+int create_file(const char* filename){
+    if(fs->current_dir->num_entries >= MAX_ENTRIES){
+        printf("Directory attuale piena.");
+        return -1;
+    }
+
+    if(findEntry(filename) != NULL){
+        printf("File con nome %s già presente ",filename);
+        return -1;
+    }
+
+    //Cerco un inode libero per il file
+    Inode *new_inode = searchFreeInode();
+    if(new_inode == NULL){
+        printf("Tabella degli inode piena");
+        return -1;
+    }
+
+    new_inode->is_dir = 0;
+    new_inode->used = 1;
+
+    //Aggiungo la entry alla directory padre
+    addDirEntry(filename,new_inode->id);
+
+    //Apporto le modifiche al disco
     syncFS();
     return 0;
 }

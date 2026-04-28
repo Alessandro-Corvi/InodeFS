@@ -42,13 +42,13 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             return;
         }
         formatFS(argv[1],atoi(argv[2]));
-    }/*else if(strcmp(argv[0],"load")==0){
+    }else if(strcmp(argv[0],"load")==0){
         if(argv[1]==NULL){
             printf("Errore: filename non valido\n");
             return;
         }
         load_fs(argv[1]);
-    }*/
+    }
     
     else if(strcmp(argv[0],"mkdir")==0){
         if(argv[1] == NULL){
@@ -62,9 +62,17 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             return;
         }
         changeDirectory(argv[1]);
-    }/*else if(strcmp(argv[0],"touch")==0){
-
-    }else if(strcmp(argv[0],"cat")==0){
+    }else if(strcmp(argv[0],"touch")==0){
+        if(argv[1] == NULL || argc>2){
+            printf("Parametri in ingresso non validi");
+            return;
+        }
+        if(strchr(argv[1], '.') == NULL){
+            printf("Errore: il nome del file deve contenere l'estensione '.'\n");
+            return;
+        }
+        create_file(argv[1]);
+    }/*else if(strcmp(argv[0],"cat")==0){
 
     }*/else if(strcmp(argv[0],"ls")==0){
         int inodes_mode = 0;

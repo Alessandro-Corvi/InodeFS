@@ -60,8 +60,13 @@ extern Filesystem *fs;
 
 int formatFS(const char* filename, int fs_size);
 int loadFS(const char* filename);
+
 int createDirectory(const char* dirname);
 void changeDirectory(const char* dirname);
 void printDirectory();
 int removeDirectory(const char* dirname);
+
+int create_file(const char* filename);
+
+
 #endif 

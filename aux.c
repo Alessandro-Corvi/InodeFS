@@ -100,13 +100,8 @@ DirEntry* findEntry(const char* dirname){
 
 
 
-//Aggiunge la entry all'inode 
-int addDirEntry(const char* name, int id) {
-    if(fs->current_dir->num_entries == MAX_ENTRIES){
-        printf("Cartella piena");
-        return -1;
-    }
-
+//Aggiunge la entry all'inode  padre
+void addDirEntry(const char* name, int id) {
     int free_ptr = NULL_PTR;
     for(int i=0; i< NUM_PTRS; i++){
         char *block = getBlockAt(i);
@@ -120,11 +115,11 @@ int addDirEntry(const char* name, int id) {
         }
         DirEntry *entries = (DirEntry*) block;
         for(int j=0; j < ENTRIES_PER_BLOCK; j++){
-            if(entries[j].id==0){
-                strcpy(entries[j].name,name);
+            if(entries[j].name[0] == '\0'){
+                strcpy(entries[j].name, name);
                 entries[j].id = id;
                 fs->current_dir->num_entries ++;
-                return 0;
+                return;
             }
         }
     }
@@ -139,13 +134,9 @@ int addDirEntry(const char* name, int id) {
     
     //Aumento le entry della dir corrente
     fs->current_dir->num_entries ++ ;
-    
-    //Sincronizzo con il disco
-    syncFS();
-    return 0;
 }
 
-
+//Rimuove la entry dall'inode padre
 int removeDirEntry(int id){
     for(int i=0; i<NUM_PTRS; i++){
         DirEntry *entries = (DirEntry*)(getBlockAt(i));

@@ -13,7 +13,7 @@ int searchFreeBlock();
 DirEntry* findEntry(const char *dirname);
 
 
-int addDirEntry (const char* name, int id);
+void addDirEntry (const char* name, int id);
 int removeDirEntry(int id);
 int syncFS();
 
