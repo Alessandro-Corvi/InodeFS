@@ -50,18 +50,15 @@ int format_fs(const char* filename, int fs_size) {
     //Inizializzo Root
     Inode *inode = &fs->inodes[0];
     inode->used = 1;
+    inode->is_dir = 1;
+    inode->size = 0;
+
+
     fs->current_dir = inode;
     fs->current_path[0] = '/';
 
-
-    //Deve puntare a se stessa in questo caso
-    //Nel caso di creazione cartella mkdir, il puntatore ".." deve puntare alla cartella padre
-    //e per farlo devo fs->current_dir->block_ptrs[0] = block_index della cartella 
-    //quindi mi conviene aggiungere direttamente l'id all'inode e usarlo per identificare la cartella padre
-
     // Sincronizza i dati su disco
-    syncFS();
-    return 0;
+    return syncFS();
 }
 
 
@@ -93,45 +90,41 @@ int load_fs(const char* filename) {
     fs->data_bitmap = ptr + sizeof(Superblock);
     fs->inodes = (Inode*)(fs->data_bitmap + fs->sb->num_blocks / 8);
     fs->data = (char*)(fs->inodes + fs->sb->num_inodes);
-    fs->current_dir = fs->inodes;
+    fs->current_dir = &fs->inodes[0];
     fs->current_path[0] = '/';  
     return 0;
 }
 
 
 int create_dir(const char* dirname) {
-    //Controllo che prima
+    
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
+    }
+
+    //Caso in cui tutti i puntatori sono pieni
     if(fs->current_dir->size == MAX_SIZE){
-        printf("Errore la tabella corrente ha tutte le entry piene");
+        printf("Errore la tabella corrente ha tutte le entry piene\n");
         return -1;
     }
 
     //Controllo che non esiste già
     if(findEntry(fs->current_dir,dirname) != NULL){
-          printf("È già presente una cartella con il nome %s",dirname);
+          printf("È già presente una cartella con il nome %s\n",dirname);
           return -1;
     }
     //Cerca inode libero
     Inode *new_inode = search_free_inode();
     if(new_inode == NULL){
-        printf("Tabella degli inode piena");
+        printf("Tabella degli inode piena\n");
         return -1;
     }
 
     //Inizializza l'inode
-    new_inode->is_dir=1;
+    new_inode->is_dir = 1;
+    new_inode->size = 0;
     
-    //Aggiunge le entry . e ..
-    int block_index = search_free_block();
-    if(block_index < 0){
-        printf("Spazio dei blocchi esaurito");
-        return -1;
-    }
-    /*
-        NOTA: se volessi aggiungere . e .. con add_dir_entry
-        devo mettere come parametri d'ingresso anche l'inode
-    */
-
     //Aggiunge le entry . e ..
     add_dir_entry(new_inode,".",new_inode->id);
     add_dir_entry(new_inode,"..",fs->current_dir->id);
@@ -140,19 +133,22 @@ int create_dir(const char* dirname) {
     //Aggiunge l'entry al padre
     add_dir_entry(fs->current_dir,dirname,new_inode->id);
 
-    syncFS();
-    printf("\nDirectory %s salvata correttamente\n", dirname);
-    return 0;
+    printf("Directory %s salvata correttamente\n", dirname);
+    return syncFS();
 }
 
 
 void print_dir(int option){
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return;
+    }
     if(option){
         printf("Inode-Name\n");
     }
     for (int i=0; i<NUM_PTRS; i++){
         
-        char *block = (char*)get_inode_block(fs->current_dir,i);
+        char *block = (char*)get_inode_block(fs->current_dir,i,NULL);
         if(block==NULL){continue;}
 
         DirEntry *entries = (DirEntry*) block;
@@ -173,6 +169,11 @@ void print_dir(int option){
 
 
 void change_dir(const char *dirname) {
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return;
+    }
+
     if (strcmp(".", dirname) == 0) {
         return;
     } else if (strcmp("..", dirname) == 0) {
@@ -212,6 +213,11 @@ void change_dir(const char *dirname) {
 }
 
 int remove_dir(const char* dirname){
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
+    }
+
     DirEntry *entry = findEntry(fs->current_dir,dirname);
     if(entry == NULL){
         printf("Non è presente la cartella con nome %s", dirname);
@@ -236,6 +242,7 @@ int remove_dir(const char* dirname){
 
     //Rimuovo la entry dal padre
     remove_dir_entry(fs->current_dir,inode->id);
+
     syncFS();
     return 0;
 }
@@ -243,7 +250,8 @@ int remove_dir(const char* dirname){
 
 
 int create_file(const char* filename){
-    //Perchè quando creo un file mi da Segmentation Fault?
+    //Quando creo un file mi da Segmentation Fault perchè
+    //non ho iniziallizato il filesystem
     if(fs==NULL){
         printf("Filesystem non ancora formattato\n");
         return -1;
@@ -273,8 +281,8 @@ int create_file(const char* filename){
     add_dir_entry(fs->current_dir,filename,new_inode->id);
 
     //Apporto le modifiche al disco
-    syncFS();
-    return 0;
+    printf("File creato con successo!!\n");
+    return syncFS();
 }
 
 /*
@@ -288,6 +296,13 @@ ReadFile (filename) : {
 */
 /*Funzione per leggere un file*/
 int read_file(const char* filename){
+
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
+    }
+
+
     DirEntry *entry = findEntry(fs->current_dir,filename);
     if(entry == NULL){
         printf("Il file non è presente all'interno della cartella\n");
@@ -299,11 +314,12 @@ int read_file(const char* filename){
         printf("Il file è vuoto\n");
         return -1;
     }
-    printf("Dimensione: %d\n",inode->size);
+    printf("Dimensione file : %d\n",inode->size);
 
     int remaining  = inode->size;
     for(int i=0; i<NUM_PTRS && remaining>0; i++){
-        char *block = get_inode_block(inode,i);
+        printf("ptr %d\n",i);
+        char *block = get_inode_block(inode,i,NULL);
         //Da quel punto in poi il file è finito
         if(block==NULL){break;}
         //Scrive in stdout tutto il blocco
@@ -320,9 +336,12 @@ int read_file(const char* filename){
 
 
 
-
 int write_file(const char* filename, const char *data){
-    printf("%s\n",data);
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
+    }
+    
     //Vedo se è presente il file all'interno della cartella corrente
     DirEntry *entry = findEntry(fs->current_dir,filename);
     if(entry ==NULL){
@@ -330,8 +349,23 @@ int write_file(const char* filename, const char *data){
         return -1;
     }
 
-    int block_needed = (int)ceil((double)strlen(data) / fs->sb->block_size);
     Inode *inode = (Inode*) &(fs->inodes[entry->id]);
+
+    // Prepara la stringa da scrivere con separatore se necessario
+    char *to_write;
+    if (inode->size > 0) {
+        // Alloca spazio per " " + data + '\0'
+        to_write = malloc(strlen(data) + 2);
+        to_write[0] = ' ';
+        strcpy(to_write + 1, data);
+    } else {
+        to_write = (char*)data;
+    }
+
+    int data_len = strlen(to_write);
+
+
+    int block_needed = (int)ceil((double)strlen(to_write) / fs->sb->block_size);
     if(inode->size >= MAX_SIZE ){
         printf("Non è possibile scrivere sul file, ha raggiunto la dimensione massima.");
         return -1;
@@ -342,9 +376,12 @@ int write_file(const char* filename, const char *data){
         return -1;
     }
 
+
     int current_block = (int) ceil((double)inode->size / fs->sb->block_size);
+    int total_blocks = current_block + block_needed;
+
     //Alloco i blocchi necessari
-    for(int i=current_block; i<block_needed; i++){
+    for(int i=current_block; i < total_blocks; i++){
         if(alloc_inode_block(inode,i) < 0){
             printf("Errore nessun blocco libero disponibile");
             return -1;
@@ -352,29 +389,67 @@ int write_file(const char* filename, const char *data){
         printf("Allocato %d\n",i);
     }  
 
-    int size = strlen(data);
     int written = 0;
     int offset = inode->size;
-    while(written < size){
+    while(written < data_len){
         int block_index = (offset + written) / fs->sb->block_size;
         int block_offset = (offset + written) %fs->sb->block_size;
 
-        char *block = get_inode_block(inode,block_index);
+        char *block = get_inode_block(inode, block_index, false);
         if(block==NULL){
             printf("Errore nel prendere il blocco corrispondente\n");
             return -1;
         }
 
-        int to_write = fs->sb->block_size - block_offset;
-        if(to_write > size - written){
-            to_write = size - written;
+        int byte_to_write = fs->sb->block_size - block_offset;
+        if(byte_to_write > data_len - written){
+            byte_to_write = data_len - written;
         }
 
-        memcpy(block + block_offset, (char*) data + written ,to_write);
-        written += to_write;
-        inode->size += to_write;
+        memcpy(block + block_offset, (char*) to_write + written , byte_to_write);
+        written += byte_to_write;
+        inode->size += byte_to_write;
+        
+    }
+    
+    return syncFS();
+}
+
+
+int remove_file(const char* filename){
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
     }
 
+    //Cerco l'entry corrispondente
+    DirEntry *entry = findEntry(fs->current_dir,filename);
+    if(entry==NULL){
+        printf("File non presente\n");
+        return -1;
+    }
+
+    //Vado a prendere l'inode corrispondente
+    Inode *inode = (Inode*)&(fs->inodes[entry->id]);
+
+    //Puntatore al puntatore dell'inode che deve essere settato a 0
+    int ptrs_to_remove = (ceil)((double)inode->size/fs->sb->block_size);
+
+    for(int i=0; i < ptrs_to_remove; i++){
+        char *block = get_inode_block(inode,i,true);
+        
+        if(block==NULL){break;} 
+
+        //Azzero i dati del blocco
+        memset(block, 0,fs->sb->block_size);
+
+        //Libero il blocco 
+        bitmap_free(block);
+
+    }
+
+    //Aggiorno la directory padre
+    remove_dir_entry(fs->current_dir, inode->id);
     return syncFS();
 }
 
@@ -382,9 +457,9 @@ int write_file(const char* filename, const char *data){
 RemoveFile(filename): uso la funzione per cercare 
     findEntry
     //2.taglia/fs->block_size
-    //3.elimino tutti i blocchi memset(block,0,fs->block_size)
-    //4. imposto il valore 0 nella bitmap per i blocchi liberi
-    //4.elimino anche i riferimenti ptr[i] = 0
+    //3.elimino tutti i blocchi memset(block,0,fs->block_size) (Fatto)
+    //4. imposto il valore 0 nella bitmap per i blocchi liberi (Fatto, ma devo fare la bitmap)
+    //4.elimino anche i riferimenti ptr[i] = 0 
     //
     //5.elimino la entry dalla directory padre
     //6.Apporto le modifiche al disco

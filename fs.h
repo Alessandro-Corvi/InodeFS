@@ -11,6 +11,10 @@
 #include <stdlib.h>   // malloc
 #include <unistd.h>   // ftruncate
 #include <math.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+
 
 
 #define NULL_PTR -1
@@ -72,5 +76,6 @@ int remove_dir(const char* dirname);
 int create_file(const char* filename);
 int write_file(const char* filename, const char* data);
 int read_file(const char* filename);
+int remove_file(const char* filename);
 
 #endif 

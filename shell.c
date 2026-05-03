@@ -24,7 +24,6 @@ void list(){
     printf("\n-append (filename) (testo): aggiunge al file filename il testo");
     printf("\n-rmdir (dirname): rimuovo la cartella dirname");
     printf("\n-rmfile (filename); rimuove il file filename");
-    printf("\n-close: fa l'unmount della memoria mappata e salva le modifiche\n");
 }
 
 
@@ -114,9 +113,20 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
 
         write_file(argv[1], buffer);
         free(buffer);
-    }/*else if(strcmp(argv[0],"rmfile")==0){
-
-    }*/else if(strcmp(argv[0],"rmdir")==0){
+        
+    }else if(strcmp(argv[0],"rmfile")==0){
+        if(argv[1] == NULL || (argc>2) ){
+            printf("Parametri in ingresso non validi\n");
+            return;
+        }
+        
+        //Vedo se ha inserito un file senza estensione
+        if(strchr(argv[1], '.') == NULL){
+            printf("Errore: il nome del file deve contenere l'estensione '.'\n");
+            return;
+        }
+        remove_file(argv[1]);
+    }else if(strcmp(argv[0],"rmdir")==0){
         if(argv[1] == NULL || (argc>2) ){
             printf("Parametri in ingresso non validi\n");
             return;

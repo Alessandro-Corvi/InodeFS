@@ -1,22 +1,78 @@
 #include "aux.h"
 
-char* get_inode_block(Inode *inode,int index){
+int bitmap_alloc() {
+    for (int i = 1; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
+        int byte = i / 8;
+        int bit = 7 - (i % 8);
+        if (!(fs->data_bitmap[byte] & (1 << bit))) { // bit a 0 = blocco libero
+            fs->data_bitmap[byte] |= (1 << bit);
+            return i;
+        }
+    }
+    printf("Nessun blocco libero\n");
+    return -1;
+}
+
+int bitmap_free(char *block){
+    int index = (block - fs->data) / fs->sb->block_size;
+    int byte = index /8;
+    int bit = 7 - (index % 8);
+
+    fs->data_bitmap[byte] &= ~(1 << bit);
+
+    return 0;
+}
+
+//------------------------------------------
+
+
+/*Restituisce il blocco dell'inode puntato dall'indice index, 
+nel caso della remove() andiamo ad usare il parametri clear_ref
+per settare i riferimenti ptr[index] = 0*/
+char* get_inode_block(Inode *inode, int index, bool clear_ref){
     char *block = NULL;
     if(index < 12){
-        if(inode->direct[index] == 0){return NULL;}
-        block = fs->data + inode->direct[index] * fs->sb->block_size;
+
+        //Se il puntatore non punta a nulla
+        if(inode->direct[index] == 0){return NULL;} 
+        block = (char*)(fs->data + inode->direct[index] * fs->sb->block_size);
+        
+        //Remove: riazzero il puntatore
+        if(clear_ref){inode->direct[index]=0;}
+
     }else{
+        //L'indiretto non è stato inizializzato
         if(inode->indirect == 0) {return NULL;}
+
         int *direct =(int*) (fs->data + inode->indirect * fs->sb->block_size);
-        if(direct[index-12]==0){return NULL;}
-        block = fs->data + direct[index-12] + fs->sb->block_size;
+        if(direct[index-NUM_DIRECT]==0){return NULL;}
+
+        block = (char*)(fs->data + direct[index-NUM_DIRECT] + fs->sb->block_size);
+
+        //Remove: setto il puntatore a 0
+        if(clear_ref){direct[index-NUM_DIRECT]=0;}
+
+        //Se tutti i puntatori sono a 0
+        char zero_block[fs->sb->block_size];
+        memset(zero_block, 0, fs->sb->block_size);
+
+        if(memcmp(direct, zero_block, fs->sb->block_size) == 0 ){
+            //Libero il blocco
+            bitmap_free((char*)direct);
+
+            //Elimino il riferimento
+            inode->indirect = 0;
+        }
     }
+
     return block;
 }
 
 
+
+/*Alloca il blocco nel puntatore index*/
 int alloc_inode_block(Inode *inode, int index){
-    int block_index = search_free_block();
+    int block_index = bitmap_alloc();
     if(block_index < 0){printf("Errore: memoria dati esaurita");return -1;}
 
     if(index<12){
@@ -26,7 +82,7 @@ int alloc_inode_block(Inode *inode, int index){
         if(index == 12){
             inode->indirect = block_index;
             int *direct_ptr = (int*) (fs->data + block_index * fs->sb->block_size);
-            int data_block = search_free_block();
+            int data_block = bitmap_alloc();
             if(data_block < 0){
                 printf("Errore: memoria dati esaurita"); 
                 return -1;
@@ -41,24 +97,11 @@ int alloc_inode_block(Inode *inode, int index){
     return index;
 }
 
-
-
-int search_free_block() {
-    for (int i = 1; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
-        int byte = i / 8;
-        int bit = 7 - (i % 8);
-        if (!(fs->data_bitmap[byte] & (1 << bit))) { // bit a 0 = blocco libero
-            fs->data_bitmap[byte] |= (1 << bit);
-            return i;
-        }
-    }
-    printf("Nessun blocco libero\n");
-    return -1;
-}
-
+/*Cerca una entry libera nella cartella se non la trova
+restituisce NULL*/
 DirEntry* search_free_entry(Inode *inode) {
     for(int i = 0; i < NUM_PTRS; i++) {
-        char *block = get_inode_block(inode,i);
+        char *block = get_inode_block(inode,i,NULL);
         if (!block) continue;
 
         DirEntry *entry = (DirEntry*) block;
@@ -73,7 +116,7 @@ DirEntry* search_free_entry(Inode *inode) {
 
 
 Inode* search_free_inode(){
-    for(int i=0; i < fs->sb->free_inodes; i++){
+    for(int i=0; i < fs->sb->num_inodes; i++){
         Inode *inode = (Inode*) &(fs->inodes[i]);
         if(!(inode->used)){
             inode->used = 1;
@@ -86,7 +129,7 @@ Inode* search_free_inode(){
 
 DirEntry* findEntry(Inode *inode,const char* dirname){
     for(int index = 0; index < NUM_PTRS; index++){
-        char *block = get_inode_block(inode,index);
+        char *block = get_inode_block(inode,index,NULL);
         if(block == NULL){continue;}
         DirEntry *entry = (DirEntry*) block;
         for(int j=0; j< (int)(fs->sb->block_size/sizeof(DirEntry)); j++){
@@ -102,7 +145,7 @@ DirEntry* findEntry(Inode *inode,const char* dirname){
 void add_dir_entry(Inode *inode, const char* name, int id){
     int free_ptr = NULL_PTR;
     for(int i=0; i< NUM_PTRS; i++){
-        char *block = get_inode_block(inode,i);
+        char *block = get_inode_block(inode,i,NULL);
         //Se il blocco non è stato allocato
         if(block==NULL){
             //Se ancora non è stato trovato il primo puntatore libero
@@ -116,7 +159,7 @@ void add_dir_entry(Inode *inode, const char* name, int id){
             if(entries[j].name[0] == '\0'){
                 strcpy(entries[j].name, name);
                 entries[j].id = id;
-                inode->num_entries ++;
+                inode->size += sizeof(DirEntry);
                 return;
             }
         }
@@ -124,14 +167,14 @@ void add_dir_entry(Inode *inode, const char* name, int id){
     //Se non ho trovato entries libere nei blocchi allocati
     // ne alloco uno nuovo, free_ptr sarà
     int ptr_allocated = alloc_inode_block(inode, free_ptr);
-    DirEntry *entries = (DirEntry*)get_inode_block(inode, ptr_allocated);
+    DirEntry *entries = (DirEntry*)get_inode_block(inode, ptr_allocated,NULL);
     
     //Aggiungo la nuova entry
     strcpy(entries[0].name, name);
     entries[0].id = id;
     
     //Aumento le entry della directory
-    inode->num_entries ++ ;
+    inode->size += sizeof(DirEntry) ;
 }
 
 
@@ -140,11 +183,11 @@ void add_dir_entry(Inode *inode, const char* name, int id){
 //Rimuove la entry dall'inode passato
 int remove_dir_entry(Inode *inode, int id){
     for(int i=0; i<NUM_PTRS; i++){
-        DirEntry *entries = (DirEntry*)(get_inode_block(fs->current_dir,i));
+        DirEntry *entries = (DirEntry*)(get_inode_block(inode,i,NULL));
         for(int j=0 ; j<ENTRIES_PER_BLOCK; j++){
             if(entries[j].id ==id){
                 memset((DirEntry*)&entries[j],0,sizeof(DirEntry));
-                inode->num_entries--;
+                inode->size -= sizeof(DirEntry);
                 return 0;
             }
         }
@@ -166,3 +209,5 @@ int syncFS() {
 
     return 0;
 }
+
+
