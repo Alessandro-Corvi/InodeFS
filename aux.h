@@ -6,6 +6,7 @@
 char* get_inode_block(Inode *inode,int index);
 int alloc_inode_block(Inode *inode,int index);
 
+
 DirEntry* search_free_entry();
 Inode* search_free_inode();
 int search_free_block();

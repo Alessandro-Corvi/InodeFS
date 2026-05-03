@@ -100,14 +100,17 @@ int load_fs(const char* filename) {
 
 
 int create_dir(const char* dirname) {
+    //Controllo che prima
+    if(fs->current_dir->size == MAX_SIZE){
+        printf("Errore la tabella corrente ha tutte le entry piene");
+        return -1;
+    }
+
     //Controllo che non esiste già
-    printf("Ciao1");
     if(findEntry(fs->current_dir,dirname) != NULL){
           printf("È già presente una cartella con il nome %s",dirname);
           return -1;
     }
-
-     printf("Ciao2");
     //Cerca inode libero
     Inode *new_inode = search_free_inode();
     if(new_inode == NULL){
@@ -240,7 +243,13 @@ int remove_dir(const char* dirname){
 
 
 int create_file(const char* filename){
-    if(fs->current_dir->num_entries >= MAX_ENTRIES){
+    //Perchè quando creo un file mi da Segmentation Fault?
+    if(fs==NULL){
+        printf("Filesystem non ancora formattato\n");
+        return -1;
+    }
+    //Controllo se ci sono tutte le direntry occupate
+    if(fs->current_dir->size == MAX_SIZE){
         printf("Directory attuale piena.");
         return -1;
     }
@@ -269,5 +278,114 @@ int create_file(const char* filename){
 }
 
 /*
-ReadFile uso le funzioni
+ReadFile (filename) : {
+    //1.Cerco l'inode corrispondente
+    //2.Vedo quanti blocchi devo leggere (arrotondo per eccesso)
+    //3. Leggo un blocco alla volta con get_inode_block()
+    //
+}
+
+*/
+/*Funzione per leggere un file*/
+int read_file(const char* filename){
+    DirEntry *entry = findEntry(fs->current_dir,filename);
+    if(entry == NULL){
+        printf("Il file non è presente all'interno della cartella\n");
+        return -1;
+    }
+
+    Inode *inode = (Inode*)&(fs->inodes[entry->id]);
+    if(inode->size == 0){
+        printf("Il file è vuoto\n");
+        return -1;
+    }
+    printf("Dimensione: %d\n",inode->size);
+
+    int remaining  = inode->size;
+    for(int i=0; i<NUM_PTRS && remaining>0; i++){
+        char *block = get_inode_block(inode,i);
+        //Da quel punto in poi il file è finito
+        if(block==NULL){break;}
+        //Scrive in stdout tutto il blocco
+        int to_read = fs->sb->block_size;
+        if(remaining < fs->sb->block_size){
+            to_read = remaining;
+        }
+        fwrite(block, 1, to_read, stdout);     
+        remaining -= to_read;  
+    }
+    printf("\n");
+    return 0;
+}
+
+
+
+
+int write_file(const char* filename, const char *data){
+    printf("%s\n",data);
+    //Vedo se è presente il file all'interno della cartella corrente
+    DirEntry *entry = findEntry(fs->current_dir,filename);
+    if(entry ==NULL){
+        printf("Non è presente il file %s",filename);
+        return -1;
+    }
+
+    int block_needed = (int)ceil((double)strlen(data) / fs->sb->block_size);
+    Inode *inode = (Inode*) &(fs->inodes[entry->id]);
+    if(inode->size >= MAX_SIZE ){
+        printf("Non è possibile scrivere sul file, ha raggiunto la dimensione massima.");
+        return -1;
+    }
+
+    if(inode->size + (block_needed * fs->sb->block_size) > MAX_SIZE){
+        printf("Errrore: impossibile scrivere, dimensione massima del file superata");
+        return -1;
+    }
+
+    int current_block = (int) ceil((double)inode->size / fs->sb->block_size);
+    //Alloco i blocchi necessari
+    for(int i=current_block; i<block_needed; i++){
+        if(alloc_inode_block(inode,i) < 0){
+            printf("Errore nessun blocco libero disponibile");
+            return -1;
+        }
+        printf("Allocato %d\n",i);
+    }  
+
+    int size = strlen(data);
+    int written = 0;
+    int offset = inode->size;
+    while(written < size){
+        int block_index = (offset + written) / fs->sb->block_size;
+        int block_offset = (offset + written) %fs->sb->block_size;
+
+        char *block = get_inode_block(inode,block_index);
+        if(block==NULL){
+            printf("Errore nel prendere il blocco corrispondente\n");
+            return -1;
+        }
+
+        int to_write = fs->sb->block_size - block_offset;
+        if(to_write > size - written){
+            to_write = size - written;
+        }
+
+        memcpy(block + block_offset, (char*) data + written ,to_write);
+        written += to_write;
+        inode->size += to_write;
+    }
+
+    return syncFS();
+}
+
+/*
+RemoveFile(filename): uso la funzione per cercare 
+    findEntry
+    //2.taglia/fs->block_size
+    //3.elimino tutti i blocchi memset(block,0,fs->block_size)
+    //4. imposto il valore 0 nella bitmap per i blocchi liberi
+    //4.elimino anche i riferimenti ptr[i] = 0
+    //
+    //5.elimino la entry dalla directory padre
+    //6.Apporto le modifiche al disco
 */

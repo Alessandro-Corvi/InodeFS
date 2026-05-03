@@ -8,8 +8,8 @@ char* get_inode_block(Inode *inode,int index){
     }else{
         if(inode->indirect == 0) {return NULL;}
         int *direct =(int*) (fs->data + inode->indirect * fs->sb->block_size);
-        if(direct[index]==0){return NULL;}
-        block = fs->data + direct[index] + fs->sb->block_size;
+        if(direct[index-12]==0){return NULL;}
+        block = fs->data + direct[index-12] + fs->sb->block_size;
     }
     return block;
 }
@@ -17,7 +17,7 @@ char* get_inode_block(Inode *inode,int index){
 
 int alloc_inode_block(Inode *inode, int index){
     int block_index = search_free_block();
-    if(block_index < -1){printf("Errore: memoria dati esaurita");return -1;}
+    if(block_index < 0){printf("Errore: memoria dati esaurita");return -1;}
 
     if(index<12){
         inode->direct[index] = block_index;
@@ -26,16 +26,16 @@ int alloc_inode_block(Inode *inode, int index){
         if(index == 12){
             inode->indirect = block_index;
             int *direct_ptr = (int*) (fs->data + block_index * fs->sb->block_size);
-            int block_index = search_free_block();
-            if(block_index < 0){
+            int data_block = search_free_block();
+            if(data_block < 0){
                 printf("Errore: memoria dati esaurita"); 
                 return -1;
            }
-           direct_ptr[0] = block_index; 
+           direct_ptr[0] = data_block; 
         }else{
             //Se l'indice indiretto ha un blocco allocato cerco direttamente il puntatore
             int *direct_ptr =(int*) (fs->data + inode->indirect * fs->sb->block_size);
-            direct_ptr[index] = block_index;
+            direct_ptr[index-NUM_DIRECT] = block_index;
         }
     }
     return index;
@@ -122,7 +122,7 @@ void add_dir_entry(Inode *inode, const char* name, int id){
         }
     }
     //Se non ho trovato entries libere nei blocchi allocati
-    // ne alloco uno nuovo
+    // ne alloco uno nuovo, free_ptr sarà
     int ptr_allocated = alloc_inode_block(inode, free_ptr);
     DirEntry *entries = (DirEntry*)get_inode_block(inode, ptr_allocated);
     

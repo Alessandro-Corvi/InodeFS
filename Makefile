@@ -1,19 +1,24 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L
+LDFLAGS = -lm
 
-SRC = shell.c fs.c aux.c
-OBJ = $(SRC:.c=.o)
-TARGET = shell
+OBJS = shell.o fs.o aux.o
 
-all: $(TARGET)
+all: shell
 
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^
+shell: $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c fs.h aux.h
+shell.o: shell.c fs.h aux.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+fs.o: fs.c fs.h aux.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+aux.o: aux.c aux.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJS) shell
 
-rebuild: clean all
+.PHONY: all clean

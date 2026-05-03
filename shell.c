@@ -64,7 +64,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         change_dir(argv[1]);
     }else if(strcmp(argv[0],"touch")==0){
         if(argv[1] == NULL || argc>2){
-            printf("Parametri in ingresso non validi");
+            printf("Parametri in ingresso non validi\n");
             return;
         }
         if(strchr(argv[1], '.') == NULL){
@@ -72,21 +72,53 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             return;
         }
         create_file(argv[1]);
-    }/*else if(strcmp(argv[0],"cat")==0){
+    }else if(strcmp(argv[0],"cat")==0){
+        if(argv[1]==NULL){
+            printf("Nome del file non inserito");
+            return;
+        }
+        
+        if(strchr(argv[1], '.') == NULL){
+            printf("Errore: il nome del file deve contenere l'estensione '.'\n");
+            return;
+        }
 
-    }*/else if(strcmp(argv[0],"ls")==0){
+        read_file(argv[1]);
+    }else if(strcmp(argv[0],"ls")==0){
         int inodes_mode = 0;
         if(argc == 2 && strcmp(argv[1],"-i")==0){
             inodes_mode = 1;
         }
         print_dir(inodes_mode); //Stampa solo la directory corrente
-    }/*else if(strcmp(argv[0],"append")==0){
+    }else if(strcmp(argv[0],"append")==0){
+        if(argv[2] == NULL){
+            printf("Non hai inserito il testo da scrivere nel file\n");
+            return;
+        }
+        //Vedo se ha inserito un file senza estensione
+        if(strchr(argv[1], '.') == NULL){
+            printf("Errore: il nome del file deve contenere l'estensione '.'\n");
+            return;
+        }
 
-    }else if(strcmp(argv[0],"rmfile")==0){
+        int total_len = 0;
+        for(int i = 2; argv[i] != NULL; i++)
+            total_len += strlen(argv[i]) + 1;  // +1 per spazio/terminatore
+
+        char *buffer = malloc(total_len);
+        buffer[0] = '\0';
+        for(int i = 2; argv[i] != NULL; i++){
+            if(i > 2) strcat(buffer, " ");
+            strcat(buffer, argv[i]);
+        }
+
+        write_file(argv[1], buffer);
+        free(buffer);
+    }/*else if(strcmp(argv[0],"rmfile")==0){
 
     }*/else if(strcmp(argv[0],"rmdir")==0){
         if(argv[1] == NULL || (argc>2) ){
-            printf("Parametri in ingresso non validi");
+            printf("Parametri in ingresso non validi\n");
             return;
         }
         char *token = strtok(argv[1], ".");

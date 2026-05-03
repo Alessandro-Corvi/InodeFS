@@ -10,6 +10,7 @@
 #include <string.h>   // memset
 #include <stdlib.h>   // malloc
 #include <unistd.h>   // ftruncate
+#include <math.h>
 
 
 #define NULL_PTR -1
@@ -19,6 +20,8 @@
 
 #define ENTRIES_PER_BLOCK 16
 #define MAX_ENTRIES ((NUM_DIRECT*ENTRIES_PER_BLOCK) + (NUM_BLOCK_PTRS*ENTRIES_PER_BLOCK))
+#define MAX_SIZE (NUM_DIRECT*fs->sb->block_size) + (NUM_PTRS * fs->sb->block_size)
+
 
 typedef struct{
     int fs_size;
@@ -67,6 +70,7 @@ void print_dir();
 int remove_dir(const char* dirname);
 
 int create_file(const char* filename);
-
+int write_file(const char* filename, const char* data);
+int read_file(const char* filename);
 
 #endif 
