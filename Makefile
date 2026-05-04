@@ -1,24 +1,31 @@
+# Nome eseguibile
+TARGET = shell
+
+# Compilatore
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L
+
+# Flag
+CFLAGS = -Wall -Wextra -g
 LDFLAGS = -lm
 
-OBJS = shell.o fs.o aux.o
+# Sorgenti e oggetti
+SRCS = shell.c fs.c aux.c
+OBJS = $(SRCS:.c=.o)
 
-all: shell
+# Regola principale
+all: $(TARGET)
 
-shell: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+# Link
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 
-shell.o: shell.c fs.h aux.h
+# Compilazione
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-fs.o: fs.c fs.h aux.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-aux.o: aux.c aux.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
+# Pulizia
 clean:
-	rm -f $(OBJS) shell
+	rm -f $(OBJS) $(TARGET)
 
-.PHONY: all clean
+# Rebuild completo
+re: clean all

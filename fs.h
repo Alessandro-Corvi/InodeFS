@@ -1,7 +1,6 @@
 #ifndef FS_H
 #define FS_H
 
-
 #include <fcntl.h>      // open
 #include <unistd.h>     // ftruncate, close
 #include <sys/mman.h>   // mmap, munmap
@@ -15,12 +14,11 @@
 #include <stdbool.h>
 
 
-
-
 #define NULL_PTR -1
 #define NUM_PTRS 140
 #define NUM_DIRECT 12
-#define NUM_BLOCK_PTRS 128
+#define PTR_PER_BLOCK (int)((fs->sb->block_size)/sizeof(int))
+
 
 #define ENTRIES_PER_BLOCK 16
 #define MAX_ENTRIES ((NUM_DIRECT*ENTRIES_PER_BLOCK) + (NUM_BLOCK_PTRS*ENTRIES_PER_BLOCK))
@@ -47,7 +45,6 @@ typedef struct{
     int size;
     int is_dir;
     int used;
-    int num_entries;
     int direct[12];
     int indirect;
 }__attribute__((packed))Inode;
@@ -70,12 +67,13 @@ int load_fs(const char* filename);
 
 int create_dir(const char* dirname);
 void change_dir(const char* dirname);
-void print_dir();
-int remove_dir(const char* dirname);
+void print_dir(bool inodes_mode);
+int remove_dir(const char* dirname, bool forced);
 
 int create_file(const char* filename);
 int write_file(const char* filename, const char* data);
 int read_file(const char* filename);
 int remove_file(const char* filename);
+
 
 #endif 

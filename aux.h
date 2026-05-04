@@ -3,18 +3,14 @@
 
 #include "fs.h"
 
-char* get_inode_block(Inode *inode, int index, bool clear_ref);
-int alloc_inode_block(Inode *inode, int index);
-
-
-DirEntry* search_free_entry();
-Inode* search_free_inode();
-
 int bitmap_alloc();
 int bitmap_free(char *block);
 
-DirEntry* findEntry(Inode *inode, const char *dirname);
+char* get_inode_block(Inode *inode, int index,bool clear_ref);
+int alloc_inode_block(Inode *inode, int index);
 
+Inode* search_free_inode();
+DirEntry* find_entry(Inode *inode,const char* name);
 
 void add_dir_entry (Inode *inode, const char* name, int id);
 int remove_dir_entry(Inode *inode, int id);

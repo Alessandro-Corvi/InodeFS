@@ -1,14 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <string.h>
-
 #include "fs.h"
-#include "aux.h"
 
-#define MAX_LINE    2048
+#define MAX_LINE    4000
 #define MAX_TOKENS  256
 
 
@@ -16,14 +8,15 @@ void list(){
     printf("--------------\n");
     printf("-list: lista i comandi presenti ");
     printf("\n-format (filename) (size): formatta il filesystem  con taglia size");
-    printf("\n-load (filename): carica il filesystem presente nella cartella");
+    printf("\n-load (filename.bin): carica il filesystem presente nella cartella");
     printf("\n-touch (filename): crea il file filename ");
     printf("\n-mkdir (dirname) : crea una cartella di nome dirname");
     printf("\n-cd (dirname): cambia il percorso attuale");
     printf("\n-cat (filename): stampa il contenuto del file filename sullo schermo");
     printf("\n-append (filename) (testo): aggiunge al file filename il testo");
-    printf("\n-rmdir (dirname): rimuovo la cartella dirname");
-    printf("\n-rmfile (filename); rimuove il file filename");
+    printf("\n-rmdir (dirname) (optional<'-rf'>): rimuovo la cartella dirname (-rf: rimuove tutte le cartelle e file all'interno)");
+    printf("\n-rmfile (filename): rimuove il file filename");
+    printf("\n-ls (optional<'-i'>): stampa la directory corrente (-i: mostra il numero dell'inode)\n");
 }
 
 
@@ -32,7 +25,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
     if (strcmp(argv[0], "list") == 0) {
         list();
     }else if(strcmp(argv[0],"format")==0){
-        if(argv[1]==NULL){
+        if(argv[1]==NULL|| argc>3){
             printf("Errore: parametri in ingresso non validi\n");
             return;
         }
@@ -62,7 +55,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         }
         change_dir(argv[1]);
     }else if(strcmp(argv[0],"touch")==0){
-        if(argv[1] == NULL || argc>2){
+        if(argv[1] == NULL){
             printf("Parametri in ingresso non validi\n");
             return;
         }
@@ -113,7 +106,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
 
         write_file(argv[1], buffer);
         free(buffer);
-        
+
     }else if(strcmp(argv[0],"rmfile")==0){
         if(argv[1] == NULL || (argc>2) ){
             printf("Parametri in ingresso non validi\n");
@@ -127,24 +120,27 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         }
         remove_file(argv[1]);
     }else if(strcmp(argv[0],"rmdir")==0){
-        if(argv[1] == NULL || (argc>2) ){
-            printf("Parametri in ingresso non validi\n");
-            return;
-        }
         char *token = strtok(argv[1], ".");
         if(strcmp(token, argv[1])){
             printf("Errore: il nome della directory non può contenere '.'\n");
             return;
         }
-        remove_dir(argv[1]);
+        bool forced = false;
+        if(argv[2]!=NULL){
+            if(strcmp(argv[2],"-rf") == 0){
+                forced = true;
+            }
+        }
+        printf("Benvenuto\n");
+        remove_dir(argv[1], forced);
     }
-    
 
    
     /*  EXIT COMMAND */
-    else if (strcmp(argv[0], "close") == 0) {
+   /* else if (strcmp(argv[0], "close") == 0) {
+        close_fs();
         _exit(0);
-    }else{
+    }*/else{
         printf("unkwnown command %s\n", argv[0]);
     }
 }
