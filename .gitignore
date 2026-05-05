@@ -1,0 +1,8 @@
+.vscode
+
+*.o
+
+shell
+
+*.bin
+*.img

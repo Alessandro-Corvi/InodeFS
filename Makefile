@@ -5,7 +5,7 @@ TARGET = shell
 CC = gcc
 
 # Flag
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -DDEBUG
 LDFLAGS = -lm
 
 # Sorgenti e oggetti
@@ -29,3 +29,5 @@ clean:
 
 # Rebuild completo
 re: clean all
+
+.PHONY: all clean re
