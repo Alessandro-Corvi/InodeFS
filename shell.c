@@ -6,18 +6,20 @@
 
 
 void list(){
-    printf("--------------\n");
+    printf("========Comandi disponibili======\n");
     printf("-list: lista i comandi presenti ");
-    printf("\n-format (filename) (size): formatta il filesystem  con taglia size");
-    printf("\n-load (filename.bin): carica il filesystem presente nella cartella");
-    printf("\n-touch (filename): crea il file filename ");
-    printf("\n-mkdir (dirname) : crea una cartella di nome dirname");
-    printf("\n-cd (dirname): cambia il percorso attuale");
-    printf("\n-cat (filename): stampa il contenuto del file filename sullo schermo");
-    printf("\n-append (filename) (testo): aggiunge al file filename il testo");
-    printf("\n-rmdir (dirname) (optional<'-rf'>): rimuovo la cartella dirname (-rf: rimuove tutte le cartelle e file all'interno)");
-    printf("\n-rmfile (filename): rimuove il file filename");
-    printf("\n-ls (optional<'-i'>): stampa la directory corrente (-i: mostra il numero dell'inode)\n");
+    printf("\nformat (filename) (size): formatta il filesystem  con taglia size");
+    printf("\nload (filename.bin): carica il filesystem presente nella cartella");
+    printf("\ntouch (filename): crea il file filename ");
+    printf("\nmkdir (dirname) : crea una cartella di nome dirname");
+    printf("\ncd (dirname): cambia il percorso attuale");
+    printf("\ncat (filename): stampa il contenuto del file filename sullo schermo");
+    printf("\nappend (filename) (testo): aggiunge al file filename il testo");
+    printf("\nrmdir (dirname) (optional<'-rf'>): rimuovo la cartella dirname (-rf: rimuove tutte le cartelle e file all'interno)");
+    printf("\nrmfile (filename): rimuove il file filename");
+    printf("\nls (optional<'-i'>): stampa la directory corrente (-i: mostra il numero dell'inode)\n");
+
+    printf("=================================\n");
 }
 
 
@@ -141,10 +143,9 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
 
    
     /*  EXIT COMMAND */
-   /* else if (strcmp(argv[0], "close") == 0) {
-        close_fs();
+    else if (strcmp(argv[0], "close") == 0) {
         _exit(0);
-    }*/else{
+    }else{
         printf("unkwnown command %s\n", argv[0]);
     }
 }

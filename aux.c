@@ -142,6 +142,8 @@ Inode* search_free_inode(){
     return NULL;
 }
 
+
+
 //----------------Funzioni per le entry -------------------
 
 //Cerca entry per nome nell'inode

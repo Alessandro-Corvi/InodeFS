@@ -328,6 +328,7 @@ int remove_dir(const char* dirname, bool forced){
     DirEntry *entries = (DirEntry*)(fs->data  + inode->direct[0] * fs->sb->block_size);
     memset(entries,0,2*sizeof(DirEntry));
     bitmap_free(inode->direct[0]);
+    inode->direct[0] = NULL_PTR;
 
 
     //Rimuovi la entry dal padre
@@ -337,6 +338,7 @@ int remove_dir(const char* dirname, bool forced){
     inode->used = 0;
     inode->is_dir = 0;
     inode->size = 0;
+    fs->sb->free_inodes ++;
 
     return syncFS();
 }
@@ -436,10 +438,12 @@ int write_file(const char* filename, const char *data){
     Inode *inode = (Inode*) &(fs->inodes[entry->id]);
 
     // Prepara la stringa da scrivere con separatore se necessario
+    bool allocated = false;
     char *to_write;
     if (inode->size > 0) {
         // Alloca spazio per " " + data + '\0'
         to_write = malloc(strlen(data) + 2);
+        allocated = true;
         to_write[0] = ' ';
         strcpy(to_write + 1, data);
     } else {
@@ -498,7 +502,9 @@ int write_file(const char* filename, const char *data){
         inode->size += byte_to_write;
         
     }
-    
+
+    if(allocated){free(to_write);}
+
     return syncFS();
 }
 
@@ -537,6 +543,7 @@ int remove_file(const char* filename){
 
     //Libero l'inode 
     inode->used = 0;
+    fs->sb->free_inodes ++;
 
     return syncFS();
 }
