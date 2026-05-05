@@ -62,6 +62,9 @@ int format_fs(const char* filename, int fs_size) {
     inode->is_dir = 1;
     inode->size = 0;
 
+    //Riservo il primo blocco alla Root
+    inode->direct[0] = bitmap_alloc();
+
     fs->current_dir = inode;
     fs->current_path[0] = '/';
 
@@ -102,6 +105,7 @@ int load_fs(const char* filename) {
     fs->current_path[0] = '/';  
     return 0;
 }
+
 //Stampa bitmap_prova
 void print_data_bitmap(){
     int num_blocks = fs->sb->num_blocks;
@@ -118,11 +122,26 @@ void print_data_bitmap(){
 
         printf("[%3d]%c ", i, used ? 'X' : '.');
 
-        // Vai a capo ogni 16 blocchi per leggibilità
+        // Vai a capo ogni 16 blocchi 
         if((i + 1) % 16 == 0) printf("\n");
     }
     printf("\n================================\n");
 }
+
+//Stampa inode_table
+void print_inode_table(){
+    int num_inodes = fs->sb->num_inodes;
+    printf("=== Inode Table (%d inodes) ===\n", num_inodes);
+    printf("Liberi: %d | Usati: %d\n\n", fs->sb->free_inodes, num_inodes - fs->sb->free_inodes);
+
+    for(int i=0; i < num_inodes; i++){
+        printf("[%3d]%c ", i, fs->inodes[i].used ? 'X' : '.');
+
+        if((i + 1) % 16 == 0) printf("\n");
+    }
+     printf("\n================================\n");
+}
+
 /*Crea una nuova directory nella current_dir*/
 int create_dir(const char* dirname){
    if(fs==NULL){
@@ -152,7 +171,6 @@ int create_dir(const char* dirname){
     //Inizializza l'inode
     new_inode->is_dir = 1;
     new_inode->size = 0;
-
 
     //Aggiunge le entry . e ..
     add_dir_entry(new_inode,".",new_inode->id);
@@ -309,6 +327,8 @@ int remove_dir(const char* dirname, bool forced){
     //Rimuovo le entry . e ..
     DirEntry *entries = (DirEntry*)(fs->data  + inode->direct[0] * fs->sb->block_size);
     memset(entries,0,2*sizeof(DirEntry));
+    bitmap_free(inode->direct[0]);
+
 
     //Rimuovi la entry dal padre
     remove_dir_entry(fs->current_dir, inode->id);
@@ -318,7 +338,6 @@ int remove_dir(const char* dirname, bool forced){
     inode->is_dir = 0;
     inode->size = 0;
 
-    printf("Sincronizza subito con il disco\n");
     return syncFS();
 }
 
@@ -394,9 +413,9 @@ int read_file(const char* filename){
         }
         //Scrive in stdout to_read byte
         fwrite(block, 1, to_read, stdout);     
-        remaining -= to_read;  
+        remaining -= to_read;
+        printf("\n");  
     }
-    printf("\n");
     return 0;
 }
 
@@ -441,12 +460,15 @@ int write_file(const char* filename, const char *data){
         return -1;
     }
 
-    //Blocco da cui abbiamo inziato a scrivere
-    int current_block = (int) ceil((double)inode->size / fs->sb->block_size);
-    int total_blocks = current_block + block_needed;
+    int offset_in_block = inode->size % fs->sb->block_size;
+    int current_block   = (int)(inode->size / fs->sb->block_size);
+
+
+    int start_alloc = (offset_in_block == 0) ? current_block : current_block + 1;
+    int end_alloc   = current_block + block_needed;
 
     //Alloco i blocchi necessari
-    for(int i=current_block; i < total_blocks; i++){
+    for(int i=start_alloc; i < end_alloc; i++){
         if(alloc_inode_block(inode,i) < 0){
             printf("Errore nessun blocco libero disponibile");
             return -1;

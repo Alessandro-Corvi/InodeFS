@@ -43,6 +43,8 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         load_fs(argv[1]);
     }else if(strcmp(argv[0],"bitmap")==0){
         print_data_bitmap();
+    }else if(strcmp(argv[0],"inodes")==0){
+        print_inode_table();
     }
     
     else if(strcmp(argv[0],"mkdir")==0){
@@ -134,7 +136,6 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
                 forced = true;
             }
         }
-        printf("Benvenuto\n");
         remove_dir(argv[1], forced);
     }
 

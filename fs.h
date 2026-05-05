@@ -66,6 +66,7 @@ extern Filesystem *fs;
 int format_fs(const char* filename, int fs_size);
 int load_fs(const char* filename);
 void print_data_bitmap();
+void print_inode_table();
 
 int create_dir(const char* dirname);
 void change_dir(const char* dirname);

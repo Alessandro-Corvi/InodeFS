@@ -2,11 +2,12 @@
 
 //---------Funzioni bitmpap---------
 int bitmap_alloc() {
-    for (int i = 0; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
+    for (int i = 0; i < fs->sb->num_blocks; i++) { 
         int byte = i / 8;
         int bit = 7 - (i % 8); //Se fosse i%8 il byte avrebbe l'ordine [7,6,5,4,3,2,1,0]
         if (!(fs->data_bitmap[byte] & (1 << bit))) { // bit a 0 = blocco libero
             fs->data_bitmap[byte] |= (1 << bit);
+            fs->sb->free_blocks --;
             return i;
         }
     }
@@ -19,6 +20,7 @@ void bitmap_free(int block_index){
     int bit = 7 - (block_index % 8);
 
     fs->data_bitmap[byte] &= ~(1 << bit);
+    fs->sb->free_blocks++;
 }
 //---------------------------------------------------------
 
@@ -133,6 +135,7 @@ Inode* search_free_inode(){
         if(!(fs->inodes[i].used)){
             printf("Inode libero %d\n",i);
             fs->inodes[i].used = 1;
+            fs->sb->free_inodes --;
             return &(fs->inodes[i]);
         }
     }
