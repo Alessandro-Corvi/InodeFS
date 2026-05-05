@@ -9,7 +9,7 @@ CFLAGS = -Wall -Wextra -g -DDEBUG
 LDFLAGS = -lm
 
 # Sorgenti e oggetti
-SRCS = shell.c fs.c aux.c
+SRCS = shell.c fs.c aux.c linenoise.c
 OBJS = $(SRCS:.c=.o)
 
 # Regola principale

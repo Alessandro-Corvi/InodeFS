@@ -54,6 +54,7 @@ int format_fs(const char* filename, int fs_size) {
         //Imposto tutti i puntatori a -1
         memset(inode->direct, NULL_PTR, sizeof(inode->direct));
         inode->indirect = NULL_PTR;
+        inode->double_indirect = NULL_PTR;
     }
 
     //Inizializza la  Root
@@ -101,7 +102,27 @@ int load_fs(const char* filename) {
     fs->current_path[0] = '/';  
     return 0;
 }
+//Stampa bitmap_prova
+void print_data_bitmap(){
+    int num_blocks = fs->sb->num_blocks;
 
+    printf("=== DATA BITMAP (%d blocchi) ===\n", num_blocks);
+    printf("Liberi: %d | Usati: %d\n\n", fs->sb->free_blocks, num_blocks - fs->sb->free_blocks);
+
+    for(int i = 0; i < num_blocks; i++){
+        // Quale byte e quale bit dentro quel byte
+        int byte_index = i / 8;
+        int bit_index  = 7-(i % 8);
+
+        int used = (fs->data_bitmap[byte_index] >> bit_index) & 1;
+
+        printf("[%3d]%c ", i, used ? 'X' : '.');
+
+        // Vai a capo ogni 16 blocchi per leggibilità
+        if((i + 1) % 16 == 0) printf("\n");
+    }
+    printf("\n================================\n");
+}
 /*Crea una nuova directory nella current_dir*/
 int create_dir(const char* dirname){
    if(fs==NULL){
@@ -340,14 +361,6 @@ int create_file(const char* filename){
     return syncFS();
 }
 
-/*
-ReadFile (filename) : {
-    //1.Cerco l'inode corrispondente
-    //2.Vedo quanti blocchi devo leggere (arrotondo per eccesso)
-    //3. Leggo un blocco alla volta con get_inode_block()
-    //
-}
-    */
 /*Funzione per leggere un file*/
 int read_file(const char* filename){
     //Il filesystem non è ancora formattato
@@ -438,7 +451,7 @@ int write_file(const char* filename, const char *data){
             printf("Errore nessun blocco libero disponibile");
             return -1;
         }
-        printf("Allocato %d\n",i);
+        printf("Allocato puntatore %d\n",i);
     }  
 
     int written = 0;
@@ -473,7 +486,6 @@ int remove_file(const char* filename){
         printf("Filesystem non ancora formattato\n");
         return -1;
     }
-
     //Cerca l'entry corrispondente
     DirEntry *entry = find_entry(fs->current_dir, filename);
     if(entry == NULL){
@@ -489,17 +501,15 @@ int remove_file(const char* filename){
 
     for(int i = 0; i < ptrs_to_remove; i++){
         char *block = get_inode_block(inode, i, true);
-        
-        if(block == NULL){break;} 
 
+        //È arrivato alla fine del file
+        if(block == NULL){break;} 
         //Azzera i dati del blocco
         memset(block, 0, fs->sb->block_size);
-
-        //Libera il blocco 
-        bitmap_free(block);
-
+        //Libera il blocco
+        int block_index = (block - fs->data ) / fs->sb->block_size; 
+        bitmap_free(block_index);
     }
-
     //Aggiorna la directory padre
     remove_dir_entry(fs->current_dir, inode->id);
 

@@ -1,8 +1,8 @@
 #include "aux.h"
 
-//---------Funzioni bitmpap
+//---------Funzioni bitmpap---------
 int bitmap_alloc() {
-    for (int i = 1; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
+    for (int i = 0; i < fs->sb->num_blocks; i++) { // parte da 1 perché il blocco 0 è riservato
         int byte = i / 8;
         int bit = 7 - (i % 8); //Se fosse i%8 il byte avrebbe l'ordine [7,6,5,4,3,2,1,0]
         if (!(fs->data_bitmap[byte] & (1 << bit))) { // bit a 0 = blocco libero
@@ -14,24 +14,21 @@ int bitmap_alloc() {
     return -1;
 }
 
-int bitmap_free(char *block){
-    int index = (block - fs->data) / fs->sb->block_size;
-    int byte = index /8;
-    int bit = 7 - (index % 8);
+void bitmap_free(int block_index){
+    int byte = block_index /8;
+    int bit = 7 - (block_index % 8);
 
     fs->data_bitmap[byte] &= ~(1 << bit);
-
-    return 0;
 }
 //---------------------------------------------------------
 
 
 
-//------------------Funzioni per gli inode ------
+//------------------Funzioni per gli inode ----------------
 /*Restituisce il blocco puntato dall'indice index*/
 char* get_inode_block(Inode *inode, int index,bool clear_ref){
     char *block = NULL;
-    if(index < 12){
+    if(index < NUM_DIRECT){
         //Se il puntatore non punta a nulla
         if(inode->direct[index] == NULL_PTR){return NULL;} 
         block = (char*)(fs->data + inode->direct[index] * fs->sb->block_size);
@@ -65,8 +62,11 @@ char* get_inode_block(Inode *inode, int index,bool clear_ref){
 
             //Se i puntori sono tutti a NULL_PTR elimino il blocco
             if(all_null){
+                //Imposta il blocco a 0
                 memset(direct, 0 ,fs->sb->block_size);
-                bitmap_free((char*)direct);
+                //Rilascia il blocco
+                bitmap_free(inode->indirect);
+                //Imposta il puntatore a NULL
                 inode->indirect = NULL_PTR;
             }
         }
@@ -80,12 +80,23 @@ char* get_inode_block(Inode *inode, int index,bool clear_ref){
 
 /*Alloca il blocco nel puntatore index*/
 int alloc_inode_block(Inode *inode, int index){
-    int block_index = bitmap_alloc();
-    if(block_index < 0){printf("Errore: memoria dati esaurita");return -1;}
-
-    if(index<NUM_DIRECT){
+    if(index < NUM_DIRECT){
+        int block_index = bitmap_alloc();
+        if(block_index < 0){
+            bitmap_free(block_index);
+            printf("Errore: memoria dati esaurita");
+            return -1;
+        }
         inode->direct[index] = block_index;
+
     }else{
+
+        int block_index = bitmap_alloc();
+            if(block_index < 0){
+                bitmap_free(block_index);
+                printf("Errore: memoria dati esaurita");
+                return -1;
+        }
         //Se l'indice indiretto non è stato allocato
         if(inode->indirect == NULL_PTR){
             inode->indirect = block_index;
@@ -98,12 +109,16 @@ int alloc_inode_block(Inode *inode, int index){
             block_index = bitmap_alloc();
             if(block_index < 0){
                 printf("Errore: memoria dati esaurita"); 
+                //Rilascia il blocco appena allocato
+                bitmap_free(block_index);
+                //Rilascia il blocco allocato per l'indirect
+                bitmap_free(inode->indirect); 
                 inode->indirect = NULL_PTR;
                 return -1;
-           }
+            }
            direct_ptr[index-NUM_DIRECT] = block_index; 
         }else{
-            //Se l'indice indiretto ha un blocco allocato, aggiungi il puntatore
+            //Se l'indice indiretto è stato allocato, aggiungi l'indice
             int *direct_ptr =(int*) (fs->data + inode->indirect * fs->sb->block_size);
             direct_ptr[index-NUM_DIRECT] = block_index;
         }
@@ -124,7 +139,7 @@ Inode* search_free_inode(){
     return NULL;
 }
 
-//----------Funzioni per le entry ----------------------
+//----------------Funzioni per le entry -------------------
 
 //Cerca entry per nome nell'inode
 DirEntry* find_entry(Inode *inode, const char* name){

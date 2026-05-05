@@ -15,14 +15,14 @@
 
 
 #define NULL_PTR -1
-#define NUM_PTRS 140
 #define NUM_DIRECT 12
 #define PTR_PER_BLOCK (int)((fs->sb->block_size)/sizeof(int))
+#define NUM_PTRS (NUM_DIRECT + PTR_PER_BLOCK + (PTR_PER_BLOCK*PTR_PER_BLOCK))
 
 
 #define ENTRIES_PER_BLOCK 16
 #define MAX_ENTRIES ((NUM_DIRECT*ENTRIES_PER_BLOCK) + (NUM_BLOCK_PTRS*ENTRIES_PER_BLOCK))
-#define MAX_SIZE (NUM_DIRECT*fs->sb->block_size) + (NUM_PTRS * fs->sb->block_size)
+#define MAX_SIZE (NUM_PTRS * fs->sb->block_size)
 
 
 typedef struct{
@@ -47,6 +47,7 @@ typedef struct{
     int used;
     int direct[12];
     int indirect;
+    int double_indirect;
 }__attribute__((packed))Inode;
 
 typedef struct{
@@ -64,6 +65,7 @@ extern Filesystem *fs;
 
 int format_fs(const char* filename, int fs_size);
 int load_fs(const char* filename);
+void print_data_bitmap();
 
 int create_dir(const char* dirname);
 void change_dir(const char* dirname);

@@ -4,7 +4,7 @@
 #include "fs.h"
 
 int bitmap_alloc();
-int bitmap_free(char *block);
+void bitmap_free(int block_index);
 
 char* get_inode_block(Inode *inode, int index,bool clear_ref);
 int alloc_inode_block(Inode *inode, int index);

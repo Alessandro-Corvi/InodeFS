@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "linenoise.h"
 
 #define MAX_LINE    4000
 #define MAX_TOKENS  256
@@ -40,6 +41,8 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
             return;
         }
         load_fs(argv[1]);
+    }else if(strcmp(argv[0],"bitmap")==0){
+        print_data_bitmap();
     }
     
     else if(strcmp(argv[0],"mkdir")==0){
@@ -55,7 +58,7 @@ void do_cmd(char* argv[MAX_TOKENS],int argc) {
         }
         change_dir(argv[1]);
     }else if(strcmp(argv[0],"touch")==0){
-        if(argv[1] == NULL){
+        if(argc>2){
             printf("Parametri in ingresso non validi\n");
             return;
         }
@@ -159,32 +162,44 @@ char* dup_string(const char* in) {
     return out;
 }
 
-void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
-    char line[MAX_LINE];
-    fgets(line, MAX_LINE, stdin);
-    char* token = strtok(line, " \t\n");
-    *argc = 0;
-    while (*argc < MAX_TOKENS && token != NULL) {
-        argv[(*argc)++] = dup_string(token);
-        token = strtok(NULL, " \t\n");
-    }
-    argv[*argc] = NULL;
+char* get_line(const char *prompt) {
+    char *line = linenoise(prompt);
+    if (line == NULL) return NULL;
+    linenoiseHistoryAdd(line);
+    return line;
 }
 
 int do_shell(char *prompt){
+    linenoiseHistorySetMaxLen(100);  // Quante righe tieni in history
+
     printf("list: lista i comandi disponibili\n");
     for (;;) {
-        if(fs!= NULL){
-            printf("%s",fs->current_path);
-        }
-        printf("%s",prompt);
+        // Costruisci il prompt con il path corrente
+        char full_prompt[300];
+        if(fs != NULL)
+            snprintf(full_prompt, sizeof(full_prompt), "InodeFS:%s%s", fs->current_path, prompt);
+        else
+            snprintf(full_prompt, sizeof(full_prompt), "InodeFS:%s", prompt);
+
+        char *line = get_line(full_prompt);
+        if(line == NULL) break;  // Ctrl+C o Ctrl+D
+
+        // Parsa la linea
         char* argv[MAX_TOKENS];
         int argc = 0;
-        get_cmd_line(argv,&argc);
-        if (argv[0] == NULL) continue;
-        if (strcmp(argv[0], "quit") == 0) break;
+        char *token = strtok(line, " \t\n");
+        while(argc < MAX_TOKENS && token != NULL){
+            argv[argc++] = dup_string(token);
+            token = strtok(NULL, " \t\n");
+        }
+        argv[argc] = NULL;
+
+        free(line);  // Va liberato dopo strtok
+
+        if(argv[0] == NULL) continue;
+        if(strcmp(argv[0], "quit") == 0) break;
         do_cmd(argv, argc);
-	    deallocate_cmd(argv);
+        deallocate_cmd(argv);
     }
     return EXIT_SUCCESS;
 }
