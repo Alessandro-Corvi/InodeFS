@@ -37,6 +37,7 @@ int format_fs(const char* filename, int fs_size) {
 
     int num_blocks = (int)((fs_size - overhead) * 8) / (8 * block_size + 1);
     fs->sb = (Superblock*)ptr;
+    fs->sb->fs_size = fs_size;
     fs->sb->block_size  = block_size;
     fs->sb->num_inodes  = num_inodes;
     fs->sb->num_blocks  = num_blocks;
@@ -44,7 +45,7 @@ int format_fs(const char* filename, int fs_size) {
     fs->sb->free_inodes = num_inodes;
 
     fs->data_bitmap = ptr + sizeof(Superblock);
-    fs->inodes = (Inode*)(fs->data_bitmap + fs->sb->num_blocks / 8);
+    fs->inodes = (Inode*)(fs->data_bitmap + (fs->sb->num_blocks + 7) / 8);
     fs->data = (char*)(fs->inodes + fs->sb->num_inodes);
 
     //Inizializza l'inode table
@@ -99,7 +100,7 @@ int load_fs(const char* filename) {
     fs=(Filesystem*)malloc(sizeof(Filesystem));
     fs->sb =(Superblock*)ptr;
     fs->data_bitmap = ptr + sizeof(Superblock);
-    fs->inodes = (Inode*)(fs->data_bitmap + fs->sb->num_blocks / 8);
+    fs->inodes = (Inode*)(fs->data_bitmap + (fs->sb->num_blocks + 7) / 8);
     fs->data = (char*)(fs->inodes + fs->sb->num_inodes);
     fs->current_dir = &fs->inodes[0]; //Imposto la directory corrente 
     fs->current_path[0] = '/';  
@@ -299,6 +300,7 @@ int remove_dir(const char* dirname, bool forced){
         fs->current_dir = inode; 
 
         for(int i = 0; i < NUM_PTRS; i++){
+            //
             char *block = get_inode_block(inode, i, false); 
             if(block == NULL) continue;
 
@@ -319,17 +321,20 @@ int remove_dir(const char* dirname, bool forced){
                     if(remove_file(entry->name) == -1) return -1;
                 }
             }
+            
+
         }
 
         fs->current_dir = saved_dir; 
     }
 
     //Rimuovo le entry . e ..
-    DirEntry *entries = (DirEntry*)(fs->data  + inode->direct[0] * fs->sb->block_size);
+    int block_index = inode->direct[0];
+    DirEntry *entries = (DirEntry*)(fs->data  + block_index * fs->sb->block_size);
     memset(entries,0,2*sizeof(DirEntry));
-    bitmap_free(inode->direct[0]);
-    inode->direct[0] = NULL_PTR;
 
+    bitmap_free(block_index);
+    inode->direct[0] = NULL_PTR;
 
     //Rimuovi la entry dal padre
     remove_dir_entry(fs->current_dir, inode->id);
@@ -543,6 +548,7 @@ int remove_file(const char* filename){
 
     //Libero l'inode 
     inode->used = 0;
+    inode->size = 0;
     fs->sb->free_inodes ++;
 
     return syncFS();

@@ -57,7 +57,7 @@ char* get_inode_block(Inode *inode, int index,bool clear_ref){
             //sono vuoti
             bool all_null = true;
             for(int i = 0; i < PTR_PER_BLOCK; i++){
-                if(direct[index - NUM_DIRECT] != NULL_PTR){
+                if(direct[i] != NULL_PTR){
                     all_null = false;
                 }
             }
@@ -85,7 +85,6 @@ int alloc_inode_block(Inode *inode, int index){
     if(index < NUM_DIRECT){
         int block_index = bitmap_alloc();
         if(block_index < 0){
-            bitmap_free(block_index);
             printf("Errore: memoria dati esaurita");
             return -1;
         }
@@ -95,7 +94,6 @@ int alloc_inode_block(Inode *inode, int index){
 
         int block_index = bitmap_alloc();
             if(block_index < 0){
-                bitmap_free(block_index);
                 printf("Errore: memoria dati esaurita");
                 return -1;
         }
@@ -111,8 +109,6 @@ int alloc_inode_block(Inode *inode, int index){
             block_index = bitmap_alloc();
             if(block_index < 0){
                 printf("Errore: memoria dati esaurita"); 
-                //Rilascia il blocco appena allocato
-                bitmap_free(block_index);
                 //Rilascia il blocco allocato per l'indirect
                 bitmap_free(inode->indirect); 
                 inode->indirect = NULL_PTR;
