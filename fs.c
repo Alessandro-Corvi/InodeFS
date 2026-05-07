@@ -52,6 +52,7 @@ int format_fs(const char* filename, int fs_size) {
     for(int i=0; i < fs->sb->num_inodes; i++){
         Inode *inode = (Inode*) &(fs->inodes[i]);
         inode->id=i;
+
         //Imposto tutti i puntatori a -1
         memset(inode->direct, NULL_PTR, sizeof(inode->direct));
         inode->indirect = NULL_PTR;
@@ -192,7 +193,9 @@ void print_dir(bool inodes_mode){
         return;
     }
     if(inodes_mode){
-        printf("Inode-Name\n");
+        printf("%-8s %-20s %-10s\n", "Inode", "Name", "Size");
+    }else{
+        printf("%-20s %-10s\n", "Name", "Size");
     }
 
     int total_entries = fs->current_dir->size / sizeof(DirEntry);  
@@ -206,14 +209,15 @@ void print_dir(bool inodes_mode){
         int entries_per_block = fs->sb->block_size / sizeof(DirEntry);
         for(int j = 0; j < entries_per_block; j++){
             if(entries[j].name[0] == '\0'){continue;}
-
+            Inode *inode = (Inode*)&fs->inodes[entries[j].id];
+             
             if(inodes_mode){
                 if(entries[j].name[0] == '\0'){continue;}
-                printf("%d  %s\n",entries[j].id,entries[j].name);
+                printf("%-8d %-20s %-10d\n",entries[j].id, entries[j].name, inode->size);
             }
             else{
                 if(entries[j].name[0] == '\0'){continue;}
-                printf("%s\n",entries[j].name);
+                 printf("%-20s %-10d\n", entries[j].name, inode->size);
             }
             read_entries ++;
         }
@@ -409,7 +413,7 @@ int read_file(const char* filename){
 
     int remaining  = inode->size;
     for(int i = 0; i < NUM_PTRS && remaining > 0; i++){
-        printf("ptr %d\n",i);
+        //printf("ptr %d\n",i);
         char *block = get_inode_block(inode, i, false);
         //Da quel punto in poi il file è finito
         if(block==NULL){break;}
@@ -421,8 +425,9 @@ int read_file(const char* filename){
         //Scrive in stdout to_read byte
         fwrite(block, 1, to_read, stdout);     
         remaining -= to_read;
-        printf("\n");  
+        //printf("\n");  
     }
+    printf("\n");
     return 0;
 }
 
@@ -433,7 +438,7 @@ int write_file(const char* filename, const char *data){
         return -1;
     }
     
-    //Vedo se è presente il file all'interno della cartella corrente
+    //Vedi se è presente il file all'interno della cartella corrente
     DirEntry *entry = find_entry(fs->current_dir,filename);
     if(entry ==NULL){
         printf("Non è presente il file %s",filename);
@@ -442,23 +447,8 @@ int write_file(const char* filename, const char *data){
 
     Inode *inode = (Inode*) &(fs->inodes[entry->id]);
 
-    // Prepara la stringa da scrivere con separatore se necessario
-    bool allocated = false;
-    char *to_write;
-    if (inode->size > 0) {
-        // Alloca spazio per " " + data + '\0'
-        to_write = malloc(strlen(data) + 2);
-        allocated = true;
-        to_write[0] = ' ';
-        strcpy(to_write + 1, data);
-    } else {
-        to_write = (char*)data;
-    }
 
-    int data_len = strlen(to_write);
-
-
-    int block_needed = (int)ceil((double)strlen(to_write) / fs->sb->block_size);
+    int block_needed = (int)ceil((double)strlen(data) / fs->sb->block_size);
     if(inode->size >= MAX_SIZE ){
         printf("Errore: il file ha raggiunto la dimensione massima.");
         return -1;
@@ -472,10 +462,8 @@ int write_file(const char* filename, const char *data){
     int offset_in_block = inode->size % fs->sb->block_size;
     int current_block   = (int)(inode->size / fs->sb->block_size);
 
-
     int start_alloc = (offset_in_block == 0) ? current_block : current_block + 1;
     int end_alloc   = current_block + block_needed;
-
     //Alloco i blocchi necessari
     for(int i=start_alloc; i < end_alloc; i++){
         if(alloc_inode_block(inode,i) < 0){
@@ -487,10 +475,12 @@ int write_file(const char* filename, const char *data){
 
     int written = 0;
     int offset = inode->size;
-    while(written < data_len){
+    int data_size = strlen(data);
+    while(written < data_size){
         int block_index = (offset + written) / fs->sb->block_size;
         int block_offset = (offset + written) %fs->sb->block_size;
 
+        //Prendi il blocco corrispondente in base al puntatore
         char *block = get_inode_block(inode, block_index, false);
         if(block==NULL){
             printf("Errore nel prendere il blocco corrispondente\n");
@@ -498,17 +488,15 @@ int write_file(const char* filename, const char *data){
         }
 
         int byte_to_write = fs->sb->block_size - block_offset;
-        if(byte_to_write > data_len - written){
-            byte_to_write = data_len - written;
+        if(byte_to_write > data_size - written){
+            byte_to_write = data_size - written;
         }
 
-        memcpy(block + block_offset, (char*) to_write + written , byte_to_write);
+        memcpy(block + block_offset, (char*) data + written , byte_to_write);
         written += byte_to_write;
         inode->size += byte_to_write;
         
     }
-
-    if(allocated){free(to_write);}
 
     return syncFS();
 }
